@@ -7,7 +7,7 @@ import numpy as np
 
 ''''COLOR MAP FUNCTIONS'''
 HASH_SCALE_FACTOR = 43758.5453 
-@njit
+@njit(cache=True)
 def hash2(p): #taken from Deliot 2019 paper         
     return (
         math.sin(p[0] * 127.1 + p[1] * 311.7) * HASH_SCALE_FACTOR % 1.0,
@@ -42,7 +42,7 @@ def build_vert_grid(dimension, side):
     return np.array(vertices), hashes, parameters
 
 SQRT3 = math.sqrt(3)
-@njit
+@njit(cache=True)
 def get_triangle(x, y, tri_height, tri_side, tri_side_half):
     
 
@@ -156,7 +156,7 @@ def fill_chunk_JIT_OLD(offset_y, offset_x, grid, grid_hashes, ltex, average_colo
     return result
 '''
 
-@njit(parallel=True)
+@njit(parallel=True, cache=True)
 def triangle_weight_precalc(grid, grid_hashes, internal_dimension):
     texture_sample_res = int(internal_dimension / 32 / 16)
     tri_side = texture_sample_res / 2
@@ -243,7 +243,7 @@ def generate_point_texture_OLD2(x, y, quad_x, quad_y, worldspace, tiling_offset)
     return texture
 '''
 
-@njit
+@njit(cache=True)
 def get_barycentric_coordinates(px, py, x1, y1, x2, y2, x3, y3):
 
     denom = ((y2 - y3)*(x1 - x3) + (x3 - x2)*(y1 - y3))
@@ -269,7 +269,7 @@ def get_matching_land_coords(x, y, quad_x, quad_y):
 
     return x_cell, y_cell, x_point, y_point
 
-@njit(fastmath=True)
+@njit(fastmath=True, cache=True)
 def get_matching_land_coords_zeroquad(x, y):
     #dimension = 32 * 32
     dimension_inv_mult = 1 / 32 # 1 / (32 * 32) * 32
@@ -295,7 +295,7 @@ def get_land_from_cell_coords(x, y, worldspace, cell_data):
     return cell_data[worldspace][x][y]
 
 
-@njit(fastmath=True)
+@njit(fastmath=True, cache=True)
 def fill_chunk_JIT(offset_y, offset_x, ltex, average_color, tiling_data, tiling_weights, chunk_dim):
     
     result = np.zeros((chunk_dim, chunk_dim, 3), dtype=np.float32)
@@ -322,7 +322,7 @@ def fill_chunk_JIT(offset_y, offset_x, ltex, average_color, tiling_data, tiling_
             
     return result
 
-@njit(fastmath=True)
+@njit(fastmath=True, cache=True)
 def fill_alpha_chunk_JIT(offset_y, offset_x, ltex_alpha, tiling_data, tiling_weights, chunk_dim):
     
     result = np.zeros((chunk_dim, chunk_dim), dtype=np.float32)
@@ -341,7 +341,7 @@ def fill_alpha_chunk_JIT(offset_y, offset_x, ltex_alpha, tiling_data, tiling_wei
             
     return result
 
-@njit(fastmath=True)
+@njit(fastmath=True, cache=True)
 def blend_textures(texture, new_texture, opacity, chunk_dim):
     for j in range(chunk_dim):
         for i in range(chunk_dim):
@@ -349,7 +349,7 @@ def blend_textures(texture, new_texture, opacity, chunk_dim):
                 texture[j, i, c] = texture[j, i, c] * (1 - opacity) + new_texture[j, i, c] * opacity
     return texture
 
-@njit(fastmath=True)
+@njit(fastmath=True, cache=True)
 def blend_textures_with_alpha(texture, new_texture, new_alpha, opacity, chunk_dim):
     for j in range(chunk_dim):
         for i in range(chunk_dim):
@@ -362,7 +362,7 @@ def blend_textures_with_alpha(texture, new_texture, new_alpha, opacity, chunk_di
     return texture
 
 
-@njit(fastmath=True)
+@njit(fastmath=True, cache=True)
 def apply_vertex_colors(texture, vertex_colors, chunk_dim):
     for j in range(chunk_dim):
         for i in range(chunk_dim):
@@ -373,7 +373,7 @@ def apply_vertex_colors(texture, vertex_colors, chunk_dim):
 
 
 
-@njit
+@njit(cache=True)
 def generate_point_texture(x, y, quad_x, quad_y, worldspace, sampling_offset, ltex_to_texture_hashed, 
                            tiling_data, tiling_weights, texture_id_map, opacity_map, vertex_color_map, textures_nparray,
                            textures_nparray_avg, textures_nparray_alpha, chunk_dim):
@@ -436,7 +436,7 @@ def generate_point_texture(x, y, quad_x, quad_y, worldspace, sampling_offset, lt
 
     return texture
 
-@njit(fastmath=True)
+@njit(fastmath=True, cache=True)
 def blend_textures_matrix(texture, new_texture, opacity, chunk_dim):
     for j in range(chunk_dim):
         for i in range(chunk_dim):
@@ -445,7 +445,7 @@ def blend_textures_matrix(texture, new_texture, opacity, chunk_dim):
     return texture
 
 
-@njit(fastmath=True, parallel=True)
+@njit(fastmath=True, parallel=True, cache=True)
 def generate_full_texture_layer(input, ltex_to_texture_hashed, opacity_matrix, sampling_offset, tiling_data, tiling_weights, texture_id_map, opacity_map, vertex_color_map, textures_nparray, textures_nparray_avg, textures_nparray_alpha, chunk_dim):
     output_texture = input
     for x in prange(32*32):
@@ -465,12 +465,12 @@ def generate_full_texture_layer(input, ltex_to_texture_hashed, opacity_matrix, s
 
 #https://numba.discourse.group/t/mistaken-poor-optimization-of-atan2/1777
 
-@njit(fastmath=True, inline='always', locals=dict(z=np.float32))
+@njit(fastmath=True, cache=True, inline='always', locals=dict(z=np.float32))
 def atanFast(z):
   return (0.97239411-0.19194795*z*z)*z
 
 
-@njit(fastmath=True, inline='always', locals=dict(x=np.float32, y=np.float32))
+@njit(fastmath=True, cache=True, inline='always', locals=dict(x=np.float32, y=np.float32))
 def atan2fast1(y, x): 
   if x != 0:
     if abs(x) > abs(y):
@@ -623,7 +623,7 @@ def apply_ao_to_texture(texture, ao, ao_strength= 1.0):
             texture[j, i, 1] = np.uint8(min(texture[j, i, 1] * ao_val, 255.0))
             texture[j, i, 2] = np.uint8(min(texture[j, i, 2] * ao_val, 255.0))
 
-@njit(parallel=True, fastmath=True,)
+@njit(parallel=True, fastmath=True)
 def distance_to_positive_numba(height: np.ndarray):
 
     H, W = height.shape

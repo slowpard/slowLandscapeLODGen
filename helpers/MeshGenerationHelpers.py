@@ -6,7 +6,7 @@ from numba.typed import List
 
 
 ''''GEOMETRY FUNCTIONS'''
-@njit
+@njit(cache=True)
 def calculate_derivative_maps(height_map, step = 128):
     f_x = np.zeros_like(height_map, dtype=np.float32)
     f_y = np.zeros_like(height_map, dtype=np.float32)
@@ -26,7 +26,7 @@ def calculate_derivative_maps(height_map, step = 128):
 
     return f_x, f_y, f_xx, f_yy, f_xy
 
-@njit
+@njit(cache=True)
 def calculate_max_eigenvalue(f_xx, f_yy, f_xy):
 
     '''
@@ -47,11 +47,11 @@ def calculate_max_eigenvalue(f_xx, f_yy, f_xy):
 
     return np.maximum(np.abs(lambda_plus), np.abs(lambda_minus))
 
-@njit
+@njit(cache=True)
 def calculate_gradient_magnitude(f_x, f_y):
     return np.sqrt(f_x**2 + f_y**2)
 
-@njit
+@njit(cache=True)
 def apply_z_weighting(height_map):
     z_map = np.zeros_like(height_map, dtype=np.float32)
     z_map = z_map + 1
@@ -83,7 +83,7 @@ def apply_z_weighting(height_map):
 
     return z_map
 
-@njit
+@njit(cache=True)
 def compute_plane_quadric(v0, v1, v2):
     #returns a 4x4 matrix that can be used to calculate the quadric error metric
     #error = vT * Q * v, Q is sum of quadric matrices for each vertex
@@ -102,7 +102,7 @@ def compute_plane_quadric(v0, v1, v2):
     
     return np.outer(plane, plane)
 
-@njit #(parallel=True) 
+@njit(cache=True)
 def generate_vert_quadratics(vertices, triangles):
 
     n_tri = len(triangles)
@@ -125,7 +125,7 @@ def generate_vert_quadratics(vertices, triangles):
 
     return vert_quadrics
 
-@njit
+@njit(cache=True)
 def create_vertices_from_heightmap(heightmap, vertice_weights_data):
 
     rows, cols = 32*32 + 1, 32*32 + 1
@@ -231,7 +231,7 @@ def create_vertices_from_heightmap(heightmap, vertice_weights_data):
 
     return vertices, triangles, edges, vertice_weights, horizontal_border, vertical_border
 
-@njit(fastmath=True)
+@njit(fastmath=True, cache=True)
 def inverse_3x3(matrix, det):
     inv = np.zeros((3, 3), dtype=np.float64)
     inv_det = 1 / det
@@ -250,7 +250,7 @@ def inverse_3x3(matrix, det):
 
 FLOAT64_ZERO_ONE = np.array([0, 0, 0, 1], dtype=np.float64)
     
-@njit(fastmath=True)
+@njit(fastmath=True, cache=True)
 def edge_cost_evaluation(v0, v1, q1, q2, w1, w2, v0_is_boundary, v1_is_boundary, v0_h, v1_h, v0_v, v1_v):
     
     #det_val2 = np.linalg.det(Q_bar[:3, :3])
@@ -366,7 +366,7 @@ def edge_cost_evaluation(v0, v1, q1, q2, w1, w2, v0_is_boundary, v1_is_boundary,
 
     return cost, optimum
 
-@njit
+@njit(cache=True)
 def calculate_edge_cost(vertices_array, edges_array, vertice_quadrics_array, weights_array, horizontal_border, vertical_border):
     n_edges = len(edges_array)
     cost = np.zeros(n_edges, dtype=np.float64)
@@ -402,7 +402,7 @@ def is_positive_semidefinite(M, tol=1e-14):
     return np.all(w > -tol)
 
 
-@njit(fastmath=True)
+@njit(fastmath=True, cache=True)
 def simplify_mesh(vertices_array, triangles_array, edges_array,
                   vertex_quadrics_array, edge_cost, edges_collapse, weights_array, horizontal_border, vertical_border, 
                   target_verts=30000, min_error=500000, first_loop_min_error=500, vertices_batch=0.8, current_vert_abs_minimum=1089):
@@ -781,7 +781,7 @@ def UpdateCellBorders(q1, q2, border_c_axis, other_axis, merging_sensitivity=50)
 
 
 
-@njit
+@njit(cache=True)
 def GenerateLODMeshData(height_map, target_verts, min_error, vertices_batch):
     #logging.info('Generating LOD mesh...')
     #print(height_map.shape)
@@ -851,7 +851,7 @@ def GenerateLODMeshData(height_map, target_verts, min_error, vertices_batch):
 
 
     
-@njit(parallel=True)
+@njit(parallel=True, cache=True)
 def GenerateLODMeshDataWrapper(worldspace_heightmap, quads, x_low, y_low, counter, target_verts, min_error, vertices_batch):
 
     dummy_verts = np.empty((0, 3), dtype=np.float64)
@@ -881,7 +881,7 @@ def GenerateLODMeshDataWrapper(worldspace_heightmap, quads, x_low, y_low, counte
 
 
 
-@njit
+@njit(cache=True)
 def GenerateLODMeshDataWrapperST(worldspace_heightmap, quads, x_low, y_low, counter, target_verts, min_error, vertices_batch):
 
     dummy_verts = np.empty((0, 3), dtype=np.float64)

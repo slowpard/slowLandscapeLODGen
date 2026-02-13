@@ -187,7 +187,7 @@ def create_vertices_from_heightmap_simple(heightmap):
 
     return vertices, triangles
 
-@njit(parallel=True, fastmath=True)
+@njit(parallel=True, fastmath=True, cache=True)
 def calc_face_normals_non_normalized(tris, verts):
     normals = np.zeros((len(tris), 3), dtype=np.float64)
     for i in prange(len(tris)):
@@ -209,7 +209,7 @@ def calculate_angle(p_0, p_a, p_b):
     cos_theta = max(min(dot_product / (norm_a * norm_b), 1.0), -1.0)
     return np.arccos(cos_theta)
 
-@njit(fastmath=True, parallel=True)
+@njit(fastmath=True, parallel=True, cache=True)
 def calc_vertex_normals_angle_weighted(tris, verts, normals):
 
     vertex_normals = np.zeros((len(verts), 3), dtype=np.float64)
@@ -550,7 +550,7 @@ def blend_normal_maps(base_normal, detail_normal):
     return result
 
 
-@njit(fastmath=True)
+@njit(fastmath=True, cache=True)
 def compute_gradients_vectorized(height_map, strength):
     h, w = height_map.shape
     

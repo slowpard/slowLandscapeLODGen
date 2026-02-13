@@ -28,18 +28,10 @@ import dataclasses
 from dataclasses import dataclass, field
 import tomllib
 
-from parsers.ESPParser import *
-from parsers.BSAParser import *
-from helpers.NormalMapHelpers import *
-from helpers.ColorMapHelpers import *
-from helpers.MeshGenerationHelpers import *
-from helpers.NifSaver import *
-from slowlodgen.ui_settings import *
-from slowlodgen.ui_pluginselection import *
-from slowlodgen.config import *
 
 
-apply_pyffi_patches()
+
+
 
 def get_app_dir():
     if getattr(sys, 'frozen', False):
@@ -52,6 +44,28 @@ def get_app_dir():
         return os.path.abspath(os.getcwd())
 
 TOOL_DIR = get_app_dir()
+
+os.environ['NUMBA_CACHE_DIR'] = os.path.join(TOOL_DIR, '__numba_cache__')
+
+
+from numba import prange, njit, types
+from numba.typed import Dict
+from typing import List, Optional, Literal, Union
+from numba.typed import List
+from numba.core import event
+import numba
+
+
+from parsers.ESPParser import *
+from parsers.BSAParser import *
+from helpers.NormalMapHelpers import *
+from helpers.ColorMapHelpers import *
+from helpers.MeshGenerationHelpers import *
+from helpers.NifSaver import *
+from slowlodgen.ui_settings import *
+from slowlodgen.ui_pluginselection import *
+from slowlodgen.config import *
+apply_pyffi_patches()
 
 start_time = time.time()
 logging.basicConfig(
