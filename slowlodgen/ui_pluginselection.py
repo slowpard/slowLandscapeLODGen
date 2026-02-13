@@ -1,3 +1,4 @@
+import os
 import customtkinter as ctk
 
 class PluginSelectionWindow(ctk.CTkToplevel):
@@ -58,7 +59,6 @@ class PluginSelectionWindow(ctk.CTkToplevel):
 
 class PluginSelectorUI(ctk.CTk):
     def __init__(self):
-
         super().__init__()
         self.title("slowLandscapeLODGen")
         self.geometry("1x1")
@@ -67,7 +67,8 @@ class PluginSelectorUI(ctk.CTk):
     def on_close(self):
         self.destroy()
         self.quit()
-
+        os._exit(0)
+        
     def ShowPluginsSelection(self, plugin_list, selected_plugins=None):
         window = PluginSelectionWindow(self, plugin_list, selected_plugins)
         self.wait_window(window)

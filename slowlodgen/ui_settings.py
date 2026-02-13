@@ -1,6 +1,7 @@
 
 import customtkinter as ctk
-
+import os
+import logging
 
 class ToolTip:
     """Minimal hover tooltip for any widget."""
@@ -67,6 +68,9 @@ class LODSettingsWindow(ctk.CTkToplevel):
         self.title("slowLODGen � Settings")
         self.geometry("1160x740")
         self.minsize(960, 500)
+
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
+
         self.cfg = cfg
         self.confirmed = False
 
@@ -426,6 +430,12 @@ class LODSettingsWindow(ctk.CTkToplevel):
         self.confirmed = True
         self.destroy()
 
+    def on_close(self):
+        self.confirmed = False
+        self.destroy()
+        logging.info("Tool closed without confirmation, exiting.")
+        os._exit(0)
+
 class PluginSettingsUI(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -435,6 +445,7 @@ class PluginSettingsUI(ctk.CTk):
     def on_close(self):
         self.destroy()
         self.quit()
+        os._exit(0)
 
     def show_settings(self, cfg, worldspace_list) -> tuple:
         window = LODSettingsWindow(self, cfg, worldspace_list)
