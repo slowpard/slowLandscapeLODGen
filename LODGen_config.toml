@@ -1,0 +1,80 @@
+# slowLODGen Advanced Configuration File
+# Normally you don't need to touch it
+
+[general]
+debug_level = "INFO"
+# Plugins treated as enabled even if disabled in-game
+force_enabled_plugins = [
+    "SI_HM_fix.esp",
+]
+excluded_worldspaces = [
+	"ToddWorld", "Toddland", "ToddTestLand2", "MQ15TestWorld3",
+	"TestTree", "TestHopeTrees", "SETest", "SETestGrant", "BloatedFloatAtSea",
+	"TestMurkDweller", "TestHungerWorld", "TestShambles", "TestRegion",
+	"TestExRuin", "TestGnarlWorld", "OblivionMQKvatch", "TestGragtown",
+	"TestWorld", "TestFortRuinsExtWarehouse", "TestGatekeeper",
+	"TestElytraWorld", "TestFleshAtronach", "TestBaliwogWorld", 
+	"TestCreaturesGrummiteWorld", "TestJyggylag", "TestCreatureSkeletalHoundWorld",
+	"SETestCylarne", "SETestIsland", "DreamWorld", "TestAyleid", "SETestIsland",
+	"PalePassWorld", "DreamWorld02", "ArkvedsTowerWorld", "TestMatt",
+	"TestAlanBears", "ICAristocraticDistrict", 
+	]
+generate_meshes = true
+generate_normal_maps = true
+generate_color_maps = true
+use_enginebugfixes_naming_scheme = "Auto"
+
+[mesh]
+vertices_batch = 0.8
+mesh_min_error = 500000
+current_vert_abs_minimum = 1089
+first_loop_min_error = 500
+target_triangles = 64000
+multithreaded = true
+threads = 8
+
+[texture]
+texture_dimension = 4096
+internal_dimension = 4096
+dds_encode_quality = 10
+gauss_blending_falloff = 2.5
+
+[normal_map]
+texture_dimension = 2048
+z_boost = 1.0
+shadows_enabled = false
+shadow_strength = 1.0
+compression = true
+
+[normal_map_noise]
+noise_enabled = false
+noise_scale = 20
+noise_intensity = 8
+noise_octaves = 15
+noise_persistence = 0.5
+noise_lacunarity = 2.0
+
+[ao]
+enabled = false
+seek_range = 512
+strength = 1.0
+gamma_min = 0.0
+gamma_exp = 1.75
+gamma_max = 0.85
+
+[paths]
+# Leave commented to auto-detect, or set explicit paths
+#oblivion_folder = "S:\\Oblivion GOG Edition\\Oblivion"
+#plugins_txt = "S:\\Oblivion GOG Edition\\Oblivion\\plugins.txt"
+
+[bsa]
+hardcoded_bsas = [
+    "Oblivion - Meshes.bsa",
+    "Oblivion - Misc.bsa",
+    "Oblivion - Textures - Compressed.bsa",
+    "N - Meshes.bsa",
+    "N - Textures1.bsa",
+    "N - Textures2.bsa",
+    "N - Misc.bsa",
+]
+
