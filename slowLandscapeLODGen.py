@@ -16,10 +16,7 @@ from PIL import Image
 Image.MAX_IMAGE_PIXELS = None
 import numpy as np
 import random
-from numba import prange, njit, types
-from numba.typed import Dict
-from typing import List, Optional, Literal, Union
-from numba.typed import List
+
 import subprocess
 import quicktex.dds
 import quicktex.s3tc.bc1
@@ -465,16 +462,19 @@ def detect_enginebugfixes_naming(setting, game_folder):
 
 ws_list = build_worldspace_list(wordlspaces, load_order)
 
+
+
+
 while True:
-
-
 
     app = PluginSettingsUI()
     confirmed, worldspaces_to_generate = app.show_settings(cfg, ws_list)
     app.quit()
     cfg.general.use_enginebugfixes_naming_scheme = detect_enginebugfixes_naming(cfg.general.use_enginebugfixes_naming_scheme, folder)
 
-
+    if len(worldspaces_to_generate) == 0:
+        logging.warning("No worldspaces selected for generation. Please select at least one.")
+        continue
 
 
     if cfg.general.generate_color_maps:
