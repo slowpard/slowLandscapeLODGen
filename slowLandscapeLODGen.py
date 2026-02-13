@@ -44,12 +44,24 @@ from slowlodgen.config import *
 
 apply_pyffi_patches()
 
+def get_app_dir():
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(os.path.abspath(sys.executable))
+    
+    try:
+        return os.path.dirname(os.path.abspath(__file__))
+    except NameError:
+        #jupyter lol
+        return os.path.abspath(os.getcwd())
+
+TOOL_DIR = get_app_dir()
+
 start_time = time.time()
 logging.basicConfig(
     level=logging.DEBUG,  
     format='%(asctime)s - %(lineno)s - %(levelname)s - %(message)s',  
     handlers=[
-        logging.FileHandler(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'output.log'), mode='w'), 
+        logging.FileHandler(os.path.join(TOOL_DIR, 'output.log'), mode='w'), 
         logging.StreamHandler()             
     ],
     datefmt='%H:%M:%S'
@@ -170,7 +182,7 @@ def resolve_plugins_txt(plugins_txt, data_path):
     return plugins_txt
 
 
-config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'LODGen_config.toml')
+config_path = os.path.join(TOOL_DIR, 'LODGen_config.toml')
 cfg = load_config(config_path)
 logging.getLogger().setLevel(logging._nameToLevel[cfg.debug_level.upper()])
 
