@@ -1,6 +1,7 @@
 import sys
 import os
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+import shutil
 
 block_cipher = None
 
@@ -28,7 +29,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=['runtime_hook_numba.py'],
-    excludes=[
+    excludes=['tcl',
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
@@ -49,7 +50,7 @@ exe = EXE(
     strip=False,
     upx=False,         
     console=True,   
-    icon=None,      
+    icon='icon.ICO',      
 )
 
 coll = COLLECT(
@@ -61,3 +62,10 @@ coll = COLLECT(
     upx=False,
     name='slowLandscapeLODGen',
 )
+
+
+dist_dir = os.path.join('dist', 'slowLandscapeLODGen')
+shutil.copy2('LODGen_config.toml', dist_dir)
+assets_dst = os.path.join(dist_dir, 'assets')
+os.makedirs(assets_dst, exist_ok=True)
+shutil.copy2('assets/default_landscape.dds', assets_dst)
