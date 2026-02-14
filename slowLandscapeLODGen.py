@@ -535,6 +535,11 @@ try:
                 if not os.path.exists(texture_path):
                     logging.error(f'Error: texture file {tex} not found')
                     texture_path = os.path.join(folder, 'LandscapeLODTemp\\BSATextures', 'textures\\landscape\\default.dds')
+                    if not os.path.exists(texture_path):
+                        texture_path = os.path.join(folder, 'textures\\landscape\\default.dds')
+                    if not os.path.exists(texture_path):
+                        logging.critical(f'Error: default texture not found at {texture_path}')
+                        texture_path = os.path.join(TOOL_DIR, 'assets', 'default_landscape.dds')
                 
                 img = Image.open(texture_path).convert("RGBA")
                 orig_width, orig_height = img.size
