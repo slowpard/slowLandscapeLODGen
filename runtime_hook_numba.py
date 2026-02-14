@@ -38,16 +38,4 @@ class PyInstallerCacheLocator(caching.UserProvidedCacheLocator):
             
         return self
 
-# 3. Force Numba to use ONLY our new custom locator
 caching.CacheImpl._locator_classes = [PyInstallerCacheLocator]
-
-from numba import prange, njit, types
-from numba.typed import Dict
-from typing import List, Optional, Literal, Union
-from numba.typed import List
-from numba.core import event
-import numba
-
-
-
-print("Numba runtime hook executed, cache dir set to:", os.environ['NUMBA_CACHE_DIR'])

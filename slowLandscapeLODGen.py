@@ -5,25 +5,17 @@ time.clock = time.time #hack as time.clock is not available since python 3.8, op
 import sys
 import math
 import logging
-import yaml
 import winreg
 import struct
-import zlib
 import math
-import shutil
-import psutil
 from PIL import Image
 Image.MAX_IMAGE_PIXELS = None
 import numpy as np
 import random
-
 import subprocess
 import quicktex.dds
 import quicktex.s3tc.bc1
-import tempfile
 import customtkinter as ctk
-import tomllib
-from pydantic import BaseModel, Field
 import dataclasses
 from dataclasses import dataclass, field
 import tomllib
