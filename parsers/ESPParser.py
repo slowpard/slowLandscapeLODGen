@@ -452,7 +452,7 @@ class RecordLAND(Record):
     def parse_land_data_VGHT_only(self):
 
         
-
+        height_data = np.full((32, 32), -65000.0, dtype=np.float32)
 
         for subrecord in self.subrecords:
            
