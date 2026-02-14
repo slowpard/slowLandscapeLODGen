@@ -452,7 +452,7 @@ class RecordLAND(Record):
     def parse_land_data_VGHT_only(self):
 
         
-        height_data = np.full((32, 32), -65000.0, dtype=np.float32)
+        height_data = np.full((33, 33), -65000.0, dtype=np.float32)
 
         for subrecord in self.subrecords:
            
@@ -493,7 +493,7 @@ class RecordLAND(Record):
         opacity_points = np.zeros((32, 32, 9), dtype=np.float32)
         vertex_colors = np.full((32, 32, 3), 255, dtype=np.uint8) 
         normal_data = np.zeros((32, 32, 3), dtype=np.uint8)
-        height_data = np.full((32, 32), -65000.0, dtype=np.float32)
+        height_data = np.full((33, 33), -65000.0, dtype=np.float32)
         #texture_id_points = [[[0] * 9 for _ in range(32)] for _ in range(32)]
         #opacity_points = [[[0.0] * 9 for _ in range(32)] for _ in range(32)]
         #vertex_colors = [[(0, 0, 0)] * 32 for _ in range(32)]
