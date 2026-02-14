@@ -29,7 +29,7 @@ vertices_batch = 0.8
 mesh_min_error = 500000
 current_vert_abs_minimum = 1089
 first_loop_min_error = 500
-target_triangles = 64000
+target_triangles = 62000
 multithreaded = true
 threads = 8
 

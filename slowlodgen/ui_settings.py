@@ -282,7 +282,7 @@ class LODSettingsWindow(ctk.CTkToplevel):
         self.mesh_options.pack(fill="x")
 
         _, self.target_triangles = self._labeled_slider(
-            self.mesh_options, "Target Triangles", 1000, 64000,
+            self.mesh_options, "Target Triangles", 1000, 62000,
             cfg.mesh.target_triangles)
 
         self.multithreading = ctk.BooleanVar(value=cfg.mesh.multithreaded)

@@ -18,7 +18,7 @@ class MeshSettings:
     mesh_min_error: int = 500_000
     current_vert_abs_minimum: int = 1089
     first_loop_min_error: int = 500
-    target_triangles: int = 64_000
+    target_triangles: int = 62_000
     multithreaded: bool = True
     threads: int = 8
 
@@ -136,7 +136,7 @@ class Config:
         if not self.mesh.multithreaded:
             self.mesh.threads = 1
 
-        self.mesh.target_triangles = max(0, min(64000, self.mesh.target_triangles))
+        self.mesh.target_triangles = max(0, min(62000, self.mesh.target_triangles))
 
 
 def load_config(path):
