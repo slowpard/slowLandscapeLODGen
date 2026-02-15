@@ -65,7 +65,7 @@ class LODSettingsWindow(ctk.CTkToplevel):
 
     def __init__(self, parent, cfg, worldspace_list):
         super().__init__(parent)
-        self.title("slowLODGen � Settings")
+        self.title("slowLandscapeLODGen Settings")
         self.geometry("1160x740")
         self.minsize(960, 500)
 
@@ -77,7 +77,7 @@ class LODSettingsWindow(ctk.CTkToplevel):
         root = ctk.CTkFrame(self, fg_color="transparent")
         root.pack(fill="both", expand=True, padx=16, pady=(10, 16))
 
-        ctk.CTkLabel(root, text="slowLODGen",
+        ctk.CTkLabel(root, text="slowLandscapeLODGen",
                      font=("Segoe UI Black", 22)).pack(anchor="w", pady=(0, 10))
 
         body_scroll = ctk.CTkScrollableFrame(root, fg_color="transparent")
@@ -86,6 +86,7 @@ class LODSettingsWindow(ctk.CTkToplevel):
         body = ctk.CTkFrame(body_scroll, fg_color="transparent")
         body.pack(fill="both", expand=True)
         body.columnconfigure(0, weight=1, uniform="col")
+        #body.rowconfigure(0, weight=1, minsize=500)
         body.columnconfigure(1, weight=1, uniform="col")
         body.columnconfigure(2, weight=1, uniform="col")
         body.rowconfigure(0, weight=1)
@@ -126,7 +127,7 @@ class LODSettingsWindow(ctk.CTkToplevel):
             # Subtitle: plugin name + small world tag
             subtitle_parts = [ws["plugin"]]
             if ws["small_world"]:
-                subtitle_parts.append("� small world")
+                subtitle_parts.append("· small world")
             subtitle = "    " + "  ".join(subtitle_parts)
 
             ctk.CTkLabel(row, text=subtitle,
@@ -300,9 +301,12 @@ class LODSettingsWindow(ctk.CTkToplevel):
 
         # ================= GENERATE BUTTON ===================================
         ctk.CTkButton(
-            root, text="?   Generate LODs", command=self.submit,
+            root, text="▶   Generate LODs", command=self.submit,
             height=46, corner_radius=8, font=("Segoe UI Semibold", 15),
         ).pack(fill="x", pady=(8, 0))
+
+        self.update_idletasks()
+        body.rowconfigure(0, minsize=body.winfo_height())
 
         self.grab_set()
 
