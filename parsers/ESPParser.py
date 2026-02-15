@@ -5,6 +5,27 @@ from numba import prange, njit, types
 import zlib
 import logging
 
+
+import codecs
+import sys
+import locale
+
+def get_ansi_encoding():
+    if sys.platform == 'win32':
+        import ctypes
+        acp = ctypes.windll.kernel32.GetACP()
+        encoding = f'cp{acp}'
+    else:
+        encoding = locale.getpreferredencoding(False)
+    
+    try:
+        codecs.lookup(encoding)
+        return encoding
+    except LookupError:
+        return 'cp1252'
+    
+LOCALIZED_ENCODING = get_ansi_encoding()
+
 class Subrecord:
     def __init__(self, sig, size, data, has_size=True, **kwargs):
         self.sig = sig   # str 4 bytes
@@ -330,7 +351,7 @@ class RecordWRLD(Record):
             elif subrecord.sig == 'DATA':
                 self.worldspace_flags = struct.unpack_from('B', subrecord.data)[0]
             elif subrecord.sig == 'FULL':
-                self.full_name = subrecord.data.decode('windows-1252').rstrip('\x00')
+                self.full_name = subrecord.data.decode(LOCALIZED_ENCODING).rstrip('\x00')
 
 
 class RecordCELL(Record):
