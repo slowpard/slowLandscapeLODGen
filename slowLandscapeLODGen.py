@@ -584,6 +584,7 @@ try:
             ltex_to_texture = {}
 
             ltex_to_texture[-1] = texture_library['textures\\landscape\\default.dds']
+            
 
             for obj in object_dict.values():
                 if obj.sig == 'LTEX':
@@ -634,6 +635,10 @@ try:
                 #add_to_dict(key, value[0], ltex_to_texture_hashed)
                 #add_to_dict(key, value[5], ltex_to_texture_avg_hashed)
             '''
+
+            texture_library, ltex_to_texture  = None, None
+            bsa_obj = None
+            tiled_img, rgb_img, rgb_resized, alpha_resized, alpha_array = None, None, None, None, None
 
         if cfg.general.generate_color_maps:
             
@@ -745,7 +750,7 @@ try:
                     #Image.fromarray(np.uint8(ao_map * 255), 'L').transpose(Image.FLIP_TOP_BOTTOM).save(f"ao_{file_name}.bmp")
                     apply_ao_to_texture(output_texture, ao_map, cfg.ao.strength)
                 
-                
+                ao_map = None
                 #Image.fromarray(output_texture.astype(np.uint8)).transpose(Image.FLIP_TOP_BOTTOM).save("unblended_output.bmp") #last minute realization that it must be flipped :sadge:
                 
                 #command = ['texconv.exe', '-f', 'DXT1', '-o' ,'.', 'unblended_output.bmp']
@@ -757,6 +762,7 @@ try:
                 #subprocess.run(command, text=True, capture_output=True)
 
                 temp_image = Image.fromarray(output_texture.astype(np.uint8)).transpose(Image.FLIP_TOP_BOTTOM)
+                output_texture = None
 
                 if cfg.texture.texture_dimension != cfg.texture.internal_dimension:
                     logging.info('Resizing texture...')
@@ -898,6 +904,9 @@ try:
 
             PRECALCULATED_TRIANGLE_WEIGHTS, PRECALCULATED_TILING_DATA, worldspace_heightmap, texture_id_map = None, None, None, None 
             opacity_map, grid, grid_hashes, ao_heightmap = None, None, None, None  
+            vertex_color_map = None
+            textures_nparray, textures_nparray_avg, textures_nparray_alpha = None, None, None
+            ltex_to_texture_hashed, ltex_to_texture_avg_hashed, ltex_to_alpha_hashed = None, None, None
 
 
         if cfg.general.generate_normal_maps:
@@ -1009,7 +1018,9 @@ try:
                                 northboost=1.0,
                                 shadow_strength=cfg.normal_map.shadow_strength,
                             )
-
+                        
+                        westslope_quad, eastslope_quad, northslope_quad = None, None, None
+                        
                         normal_map = build_base_normal_map_vertexbaking(vertex_normals, normal_map_dimension=cfg.normal_map.internal_dimension, z_boost = cfg.normal_map.z_boost)
                         if cfg.normal_map_noise.noise_enabled :
                             noise_height_map = noise_generate_height_map_vectorized(
@@ -1021,9 +1032,13 @@ try:
                             )
                             noise_height_map_float = noise_height_to_normal_map_fast(noise_height_map, strength=cfg.normal_map_noise.noise_intensity)
                             normal_map = blend_normal_maps(normal_map, noise_height_map_float)
+                            noise_height_map = None
+                            noise_height_map_float = None
 
-                        combined_normal_img = Image.fromarray(np.round(np.clip((normal_map*127.5 + 127.5 ), 0, 255)).astype(np.uint8))
                         
+                        combined_normal_img = Image.fromarray(np.round(np.clip((normal_map*127.5 + 127.5 ), 0, 255)).astype(np.uint8))
+
+                        normal_map, vertex_normals, height_map, verts, tris, face_normals = None, None, None, None, None, None
 
                         if cfg.normal_map.texture_dimension != cfg.normal_map.internal_dimension:
                             temp_image = temp_image.resize((cfg.normal_map.texture_dimension, cfg.normal_map.texture_dimension), resample=Image.BILINEAR)
@@ -1043,6 +1058,9 @@ try:
 
                             combined_normal_img.save(os.path.join(folder, r'textures\landscapelod\generated', file_name + '.dds'))
                                 
+                        combined_normal_img = None
+
+        westslope, eastslope, northslope, worldspace_heightmap = None, None, None, None
 
         if cfg.general.generate_meshes:
             logging.info('=== MESH GENERATION  ===')
