@@ -59,16 +59,23 @@ from slowlodgen.ui_pluginselection import *
 from slowlodgen.config import *
 apply_pyffi_patches()
 
+class ElapsedFilter(logging.Filter):
+    def filter(self, record):
+        record.elapsed = time.time() - start_time
+        return True
+
 start_time = time.time()
 logging.basicConfig(
     level=logging.DEBUG,  
-    format='%(asctime)s - %(lineno)s - %(levelname)s - %(message)s',  
+    format='%(elapsed).1fs  | %(lineno)s | %(levelname)s | %(message)s',  
     handlers=[
         logging.FileHandler(os.path.join(TOOL_DIR, 'output.log'), mode='w'), 
         logging.StreamHandler()             
     ],
     datefmt='%H:%M:%S'
 )
+
+logging.getLogger().addFilter(ElapsedFilter())
 
 try:
     def _data_folder_is_valid(path):
@@ -729,7 +736,7 @@ try:
             def GenerateTextureMaps(texture_id_map, opacity_map, vertex_color_map, file_name, folder, ao_data):
                 
 
-                print('Generating color map...')
+                logging.info('Generating color map...')
                 
                 output_texture = np.zeros((cfg.texture.internal_dimension, cfg.texture.internal_dimension, 3), dtype=np.float32)
                 output_texture = generate_full_texture_layer(output_texture, ltex_to_texture_hashed, distance_matrix_central, (0+32, 0+32), PRECALCULATED_TILING_DATA, PRECALCULATED_TRIANGLE_WEIGHTS, texture_id_map, opacity_map, vertex_color_map, textures_nparray, textures_nparray_avg, textures_nparray_alpha, cfg.texture.chunk_dim)
