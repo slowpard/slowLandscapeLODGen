@@ -419,14 +419,14 @@ def generate_point_texture(x, y, quad_x, quad_y, worldspace, sampling_offset, lt
         #temp_texture = np.array(Image.new("RGB", (int(tex_point_dim), int(tex_point_dim)), (0, 0, 0)))
 
         temp_texture = fill_chunk_JIT(offset[0], offset[1], ltex, average_color, tiling_data, tiling_weights, chunk_dim)
-        temp_alpha = fill_alpha_chunk_JIT(offset[0], offset[1], texture_alpha, tiling_data, tiling_weights, chunk_dim)
+        #temp_alpha = fill_alpha_chunk_JIT(offset[0], offset[1], texture_alpha, tiling_data, tiling_weights, chunk_dim)
 
         
-        #texture = blend_textures(texture, temp_texture, opacity)
-        if o == 0:
-            texture = blend_textures(texture, temp_texture, 1, chunk_dim)
-        else:
-            texture = blend_textures_with_alpha(texture, temp_texture, temp_alpha, opacity, chunk_dim)
+        texture = blend_textures(texture, temp_texture, opacity, chunk_dim)
+        #if o == 0: #as it turns out Oblivion doesn't do any alpha blending
+        #    texture = blend_textures(texture, temp_texture, 1, chunk_dim)
+        #else:
+        #    texture = blend_textures_with_alpha(texture, temp_texture, temp_alpha, opacity, chunk_dim)
         #texture = texture * (1 - opacity) + temp_texture * opacity
         #print(opacities[i])
         #print(temp_texture)
