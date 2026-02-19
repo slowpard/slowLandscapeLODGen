@@ -769,7 +769,15 @@ class ESPParser:
                 if record.sig == 'WRLD':
                     group.parent_worldspace = record
                 group.records.append(record)
-                self.formid_map[record.form_id] = record
+                if record.form_id == 0 and record.sig == 'LAND':
+                #Anequina headaches
+                    fake_id = 0xFF000000
+                    while fake_id in self.formid_map:
+                        fake_id += 1
+                    self.formid_map[fake_id] = record
+                    logging.warning(f'LAND record with NULL FormID remapped to {fake_id:#010X}')
+                else:
+                    self.formid_map[record.form_id] = record
                 f.seek(offset + 20 + record.data_size)  # 20 bytes header + data
                 
     def _parse_record(self, f, parent_group):
