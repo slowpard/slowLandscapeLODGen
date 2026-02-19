@@ -37,6 +37,9 @@ a = Analysis(
     noarchive=False,
 )
 
+a.datas = [d for d in a.datas if '_tcl_data/msgs' not in d[0] and '_tcl_data/tzdata' not in d[0]]
+
+
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
