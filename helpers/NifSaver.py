@@ -7,6 +7,63 @@ import numpy as np
 import logging
 import triangle
 from numba import njit
+import subprocess, sys
+import multiprocessing
+
+def _triangle_worker(in_path, out_path, flags, stderr_path):
+    if sys.platform == 'win32':
+        import ctypes
+        ctypes.windll.kernel32.SetErrorMode(0x0002 | 0x0001)
+    
+    with open(stderr_path, "w") as f:
+        os.dup2(f.fileno(), sys.stderr.fileno())
+        data = np.load(in_path)
+        verts = data["vertices"].astype(np.float64).copy()
+        segs = data["segments"].astype(np.int32).copy()
+        result = triangle.triangulate({"vertices": verts, "segments": segs}, flags)
+        np.savez(out_path, vertices=result["vertices"], triangles=result["triangles"])
+
+
+def triangulate_safe(vertices_2d, segments, temp_dir, flags='pY', timeout=15):
+    in_path = os.path.join(temp_dir, 'tri_input.npz')
+    out_path = os.path.join(temp_dir, 'tri_output.npz')
+    err_path = os.path.join(temp_dir, 'tri_stderr.txt')
+    
+    normalized_verts = vertices_2d / 131072.0 #scale
+    
+    try:
+        for p in (in_path, out_path, err_path):
+            if os.path.exists(p):
+                os.remove(p)
+        np.savez(in_path, vertices=normalized_verts, segments=segments)
+        proc = multiprocessing.Process(
+            target=_triangle_worker,
+            args=(in_path, out_path, flags, err_path)
+        )
+        proc.start()
+        proc.join(timeout=timeout)
+        def _read_err():
+            return open(err_path).read() if os.path.exists(err_path) else ""
+        if proc.is_alive():
+            proc.kill()
+            proc.join()
+            raise RuntimeError(f"Triangle hung (>{timeout}s)\n{_read_err()}")
+        if proc.exitcode != 0:
+            raise RuntimeError(f"Triangle crashed (exit code {proc.exitcode})\n{_read_err()}")
+        if not os.path.exists(out_path):
+            raise RuntimeError(f"Triangle produced no output\n{_read_err()}")
+        result = np.load(out_path)
+        out = {
+            'vertices': result['vertices'].copy() * 131072.0,
+            'triangles': result['triangles'].copy()
+        }
+        result.close()
+        return out
+    finally:
+        for p in (in_path, out_path, err_path):
+            if os.path.exists(p):
+                os.remove(p)
+
 
 def SaveGeometryIntoNif(final_verts, final_triangles, quad, folder, file_name, vertex_valid):         
     nif = pyffi.formats.nif.NifFormat.Data(version=int(0x14000005), user_version=0)
@@ -148,7 +205,7 @@ def get_height_at_xy(x, y, worldspace_heightmap, x_low, y_low):
 
 
 
-def GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, folder, form_id):
+def GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, folder, form_id, tool_dir):
     
     '''
     def get_border_segments(verts, border_mask, border_axis):
@@ -223,30 +280,29 @@ def GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, fold
                     print(border_segs)
                     pairs = np.concatenate([pairs, np.array(border_segs)], axis=0) if len(pairs) > 0 else np.array(border_segs)'''
 
+            verts_2d = mesh_data[x_quad][y_quad][0][:, :2]
             angle = 15
-            while True:
-                #tris = triangle.triangulate({'vertices':mesh_data[x_quad][y_quad][0][:, :2], 'segments':pairs}, f'p')
+            tris = None
+            
+            while angle > 2:
+                logging.info(f"Triangulating {worldspace} {quad} with pYq{int(angle)}... "
+                             f"(verts: {len(verts_2d)}, segments: {len(pairs)})")
+                try:
+                    tris = triangulate_safe(verts_2d, pairs, tool_dir, f'pYq{int(angle)}')
+                except RuntimeError as e:
+                    logging.warning(f"Triangle failed on {quad}: {e}")
+                    break  # crash/hang → go straight to pY
                 
-                verts_before = mesh_data[x_quad][y_quad][0][:, :2].copy()  # Save BEFORE
-
-
-                tris = triangle.triangulate({'vertices':mesh_data[x_quad][y_quad][0][:, :2], 'segments':pairs}, f'pYq{int(angle)}')
-
-                verts_after = tris['vertices']
-
+                if len(tris['triangles']) < 65500:
+                    break  # success
                 
-                #show_added_border_verts(verts_before, verts_after, border_axis=0, border_value=0.0)
-
-                if len(tris['triangles'])  < 65500:
-                    break
+                logging.warning(f"pYq{int(angle)} produced {len(tris['triangles'])} tris, reducing angle")
+                tris = None
                 angle *= 0.8
-                if angle > 2:
-                    print("Triangulation failed, trying again with angle ", int(angle))
-                else:
-                    print("High-=quality triangulation failed, consider reducing verts target")
-                    tris = triangle.triangulate({'vertices':mesh_data[x_quad][y_quad][0][:, :2], 'segments':pairs}, f'pY')
-                    break
-                
+            
+            if tris is None or len(tris['triangles']) >= 65500:
+                logging.info(f"Falling back to pY for {quad}")
+                tris = triangulate_safe(verts_2d, pairs, tool_dir, 'pY')
 
                                 
         

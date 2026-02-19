@@ -19,11 +19,9 @@ import customtkinter as ctk
 import dataclasses
 from dataclasses import dataclass, field
 import tomllib
+import multiprocessing
 
-
-
-
-
+multiprocessing.freeze_support()
 
 def get_app_dir():
     if getattr(sys, 'frozen', False):
@@ -1160,7 +1158,7 @@ try:
                 UpdateCellBordersWrapper(mesh_data)
 
                 ###################NIF GENERATION#####################
-                GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, folder, form_id)
+                GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, folder, form_id, TOOL_DIR)
 
                 mesh_data = None
 
