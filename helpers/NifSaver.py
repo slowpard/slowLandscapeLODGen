@@ -285,23 +285,23 @@ def GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, fold
             tris = None
             
             while angle > 2:
-                logging.info(f"Triangulating {worldspace} {quad} with pYq{int(angle)}... "
+                logging.info(f"Triangulating {worldspace} {quad} with max. angle {int(angle)}... "
                              f"(verts: {len(verts_2d)}, segments: {len(pairs)})")
                 try:
                     tris = triangulate_safe(verts_2d, pairs, tool_dir, f'pYq{int(angle)}')
                 except RuntimeError as e:
-                    logging.warning(f"Triangle failed on {quad}: {e}")
-                    break  # crash/hang → go straight to pY
+                    logging.warning(f"High-quality triangulation failed on {quad}: {e}")
+                    break  
                 
                 if len(tris['triangles']) < 65500:
-                    break  # success
+                    break  
                 
                 logging.warning(f"pYq{int(angle)} produced {len(tris['triangles'])} tris, reducing angle")
                 tris = None
                 angle *= 0.8
             
             if tris is None or len(tris['triangles']) >= 65500:
-                logging.info(f"Falling back to pY for {quad}")
+                logging.info(f"Falling back to simple triangulation for {quad}")
                 tris = triangulate_safe(verts_2d, pairs, tool_dir, 'pY')
 
                                 
