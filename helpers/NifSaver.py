@@ -28,7 +28,6 @@ def triangulate_safe(vertices_2d, segments, temp_dir, flags='pY', timeout=15):
     in_path = os.path.join(temp_dir, 'tri_input.npz')
     out_path = os.path.join(temp_dir, 'tri_output.npz')
     err_path = os.path.join(temp_dir, 'tri_stderr.txt')
-    
     normalized_verts = vertices_2d / 131072.0 #scale
     
     try:
@@ -234,6 +233,34 @@ def GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, fold
             rounded_ar = np.rint(mesh_data[x_quad][y_quad][0][:, :2]).astype(int)
             border = mesh_data[x_quad][y_quad][2]
 
+            #updated to avoid sorting problems
+            verts_2d = mesh_data[x_quad][y_quad][0][:, :2]
+            border_indices = np.where(border)[0]
+            border_verts = verts_2d[border_indices]
+
+            for axis in [0, 1]:
+
+                other = 1 - axis
+                coords = border_verts[:, axis]
+                nearest_grid = np.round(coords / 4096.0) * 4096.0
+                on_grid = np.abs(coords - nearest_grid) < 1.0
+
+                grid_lines = np.unique(nearest_grid[on_grid])
+
+                for grid_line in grid_lines:
+                    line_mask = on_grid & (nearest_grid == grid_line)
+                    line_indices = border_indices[line_mask]
+
+                    sorted_order = np.argsort(verts_2d[line_indices, other])
+                    sorted_indices = line_indices[sorted_order]
+
+                    for i in range(len(sorted_indices) - 1):
+                        idx1 = sorted_indices[i]
+                        idx2 = sorted_indices[i + 1]
+                        if np.abs(verts_2d[idx1, other] - verts_2d[idx2, other]) < 4097.0:
+                            pairs.append((idx1, idx2))
+
+            '''
             sorted_y_index = np.lexsort((rounded_ar[:, 0], rounded_ar[:, 1]))
             sorted_x_index = np.lexsort((rounded_ar[:, 1], rounded_ar[:, 0]))
 
@@ -269,8 +296,11 @@ def GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, fold
                             pairs.append((idx, idx_))
                             break
 
+            '''
 
             pairs = np.array(pairs)
+            
+
             '''
             verts = mesh_data[x_quad][y_quad][0][:, :2]
             for border_axis, border_value in [(0, 0.0), (0, 131072.0), (1, 0.0), (1, 131072.0)]:
@@ -280,7 +310,7 @@ def GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, fold
                     print(border_segs)
                     pairs = np.concatenate([pairs, np.array(border_segs)], axis=0) if len(pairs) > 0 else np.array(border_segs)'''
 
-            verts_2d = mesh_data[x_quad][y_quad][0][:, :2]
+            
             angle = 15
             tris = None
             
