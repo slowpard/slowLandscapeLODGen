@@ -21,6 +21,12 @@ from dataclasses import dataclass, field
 import tomllib
 import multiprocessing
 
+
+if sys.platform == 'win32':
+    import ctypes
+    ctypes.windll.kernel32.SetErrorMode(0x0002 | 0x0001 | 0x8000)
+
+
 multiprocessing.freeze_support()
 
 def get_app_dir():
@@ -292,6 +298,10 @@ try:
     signatures = ['LAND', 'CELL', 'WRLD', 'LTEX']
     object_dict = {}
     worldspace_esp = {}
+    cell_data = {}
+    quad_data = {}
+    worldspace_bounds = {}
+    wordlspaces = {}
 
     for plugin in load_order:
         parser = ESPParser()
@@ -316,112 +326,84 @@ try:
         for record in parser.formid_map:
             if parser.formid_map[record].sig in signatures:
                 object_dict[record] = parser.formid_map[record]
-                if parser.formid_map[record].sig == "WRLD":
-                    if not parser.formid_map[record].editor_id in worldspace_esp:
-                        worldspace_esp[parser.formid_map[record].editor_id] = plugin
+                #if parser.formid_map[record].sig == "WRLD":
+                #    if not parser.formid_map[record].editor_id in worldspace_esp:
+                #        worldspace_esp[parser.formid_map[record].editor_id] = plugin
 
+        for form_id, rec in parser.formid_map.items():
 
-    cell_data = {}
+            if rec.sig == 'WRLD':
+                wordlspaces[rec.editor_id] = rec
+                if not rec.editor_id in worldspace_esp:
+                    worldspace_esp[rec.editor_id] = plugin
 
-    quad_data = {}
+            elif rec.sig == 'LAND':
+                i = rec.parent_group.parent_group.parent_group.records.index(
+                    rec.parent_group.parent_group)
+                try:
+                    cell = rec.parent_group.parent_group.parent_group.records[i - 1]
+                except Exception:
+                    logging.error('Error: LAND record without CELL record found')
+                    continue
+                if type(cell) != RecordCELL:
+                    logging.error('Error: NOT CELL')
+                    continue
 
-    worldspace_bounds = {}
+                worldspace = cell.parent_worldspace.editor_id
 
-    wordlspaces = {}
-
-    for object_id in object_dict:
-        if object_dict[object_id].sig == 'LAND':
-            
-            land_record = object_dict[object_id]
-            i = land_record.parent_group.parent_group.parent_group.records.index(land_record.parent_group.parent_group)
-            try:
-                cell = land_record.parent_group.parent_group.parent_group.records[i-1]
-            except:
-                logging.error('Error: LAND record without CELL record found')
-                continue
-            
-            if type(cell) != RecordCELL:
-                logging.error('Error: NOT CELL')
-                continue
-            worldspace = cell.parent_worldspace.editor_id
-            
-            try:
-                x = cell.cell_coordinates[0]
-                y = cell.cell_coordinates[1]
-            except:
                 if worldspace not in cell_data:
-                    x = 0
-                    y = 0
+                    cell_data[worldspace] = {}
+                    worldspace_bounds[worldspace] = [99999, 999999, -99999, -99999]
+
+                coords = getattr(cell, 'cell_coordinates', None)
+                if coords:
+                    x, y = coords
                 else:
-                    if x not in cell_data[worldspace]:
-                        x = 0
-                        y = 0
-                    else:
-                        if y not in cell_data[worldspace][x]:
-                            x = 0
-                            y = 0
-                        else:
-                            continue
+                    if (worldspace in cell_data
+                            and 0 in cell_data[worldspace]
+                            and 0 in cell_data[worldspace][0]):
+                        continue
+                    x, y = 0, 0
 
 
-            if worldspace not in cell_data:
-                cell_data[worldspace] = {}
-                worldspace_bounds[worldspace] = [99999, 999999, -99999, -99999]
-            
-            if x not in cell_data[worldspace]:
-                cell_data[worldspace][x] = {}
-            
-            if y not in cell_data[worldspace][x]:
-                cell_data[worldspace][x][y] = land_record
+                if x not in cell_data[worldspace]:
+                    cell_data[worldspace][x] = {}
 
-            cell_data[worldspace][x][y] = land_record
+                cell_data[worldspace][x][y] = rec
 
-            quad_x = x // 32
-            quad_y = y // 32
-
-            if worldspace not in quad_data:
-                quad_data[worldspace] = {}
-            
-            if quad_x not in quad_data[worldspace]:
-                quad_data[worldspace][quad_x] = {}
-            
-            if quad_y not in quad_data[worldspace][quad_x]:
+                quad_x = x // 32
+                quad_y = y // 32
+                if worldspace not in quad_data:
+                    quad_data[worldspace] = {}
+                if quad_x not in quad_data[worldspace]:
+                    quad_data[worldspace][quad_x] = {}
                 quad_data[worldspace][quad_x][quad_y] = True
 
-            worldspace_bounds[worldspace][0] = min(worldspace_bounds[worldspace][0], x)
-            worldspace_bounds[worldspace][2] = max(worldspace_bounds[worldspace][2], x)
-            worldspace_bounds[worldspace][1] = min(worldspace_bounds[worldspace][1], y)
-            worldspace_bounds[worldspace][3] = max(worldspace_bounds[worldspace][3], y)
+                worldspace_bounds[worldspace][0] = min(worldspace_bounds[worldspace][0], x)
+                worldspace_bounds[worldspace][2] = max(worldspace_bounds[worldspace][2], x)
+                worldspace_bounds[worldspace][1] = min(worldspace_bounds[worldspace][1], y)
+                worldspace_bounds[worldspace][3] = max(worldspace_bounds[worldspace][3], y)
+           
 
-            #land_record.parse_texture_data()
-        elif object_dict[object_id].sig == 'WRLD':
-            worldspace = object_dict[object_id]
-            wordlspaces[worldspace.editor_id] = worldspace
-            
 
-    def build_worldspace_list(worldspaces: dict, load_order: list) -> list:
-
-        SMALL_WORLD_FLAG = 0x01
-
-        result = []
-        for editor_id, wrld in worldspaces.items():
-            if wrld.parent_worldspace is not None:
-                continue
-
-            if editor_id in cfg.excluded_worldspaces:
-                continue
-
-            plugin = worldspace_esp[editor_id]
-            small = bool(wrld.worldspace_flags & SMALL_WORLD_FLAG)
-
-            result.append({
-                "editor_id": editor_id,
-                "full_name": wrld.full_name,
-                "plugin": plugin,
-                "small_world": small,
-                "form_id": wrld.form_id,
-            })
-        return result
+    SMALL_WORLD_FLAG = 0x01
+    ws_list = []
+    for editor_id, wrld in wordlspaces.items():
+        if wrld.parent_worldspace is not None:
+            continue
+        if editor_id in cfg.excluded_worldspaces:
+            continue
+        if editor_id not in cell_data:
+            continue
+        ws_list.append({
+            "editor_id": editor_id,
+            "full_name": wrld.full_name,
+            "plugin": worldspace_esp[editor_id],
+            "small_world": bool(wrld.worldspace_flags & SMALL_WORLD_FLAG),
+            "form_id": wrld.form_id,
+            "bounds": worldspace_bounds[editor_id],
+            "cell_num": sum(len(inner) for inner in cell_data[editor_id].values())
+        })
 
     def SaveImageAsDXT1(img, output_path, level=10):
     
@@ -470,8 +452,6 @@ try:
                 logging.warning("EBF TerrainLODLoadPatch is active but EBF naming is off — vanilla naming is load-order dependent")
             return False
 
-
-    ws_list = build_worldspace_list(wordlspaces, load_order)
 
 
 
