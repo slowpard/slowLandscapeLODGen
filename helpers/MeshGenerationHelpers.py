@@ -620,7 +620,11 @@ def save_obj(vertices,triangles, filepath):
 
 #0.0 and 131072.0
 def UpdateCellBordersWrapper(mesh_data):
-     for x_quad in  mesh_data:
+
+            )   
+
+
+    for x_quad in  mesh_data:
         for y_quad in mesh_data[x_quad]:
 
             for cycle in range(2):
@@ -636,149 +640,176 @@ def UpdateCellBordersWrapper(mesh_data):
                     
                 if adj_cell_exists:
                     q1 = mesh_data[x_quad][y_quad][0].copy()
-                    
+                    q1_border = mesh_data[x_quad][y_quad][2].copy()
 
                     if cycle == 0:
                         q2 = mesh_data[x_quad + 1][y_quad][0].copy()                
+                        q2_border = mesh_data[x_quad + 1][y_quad][2].copy()
                         border_c_axis = 0
                         other_axis = 1
                     else:
                         q2 = mesh_data[x_quad][y_quad + 1][0].copy()
+                        q2_border = mesh_data[x_quad][y_quad + 1][2].copy()
                         border_c_axis = 1
                         other_axis = 0
                     #print(x_quad, y_quad, 'updating borders cycle ', cycle)
                     #print(q1.shape, q2.shape)
                     #print("q1 border coords:", q1[np.abs(q1[:, border_c_axis] - 131072.0) < 0.001][:, other_axis])
                     #print("q2 border coords:", q2[np.abs(q2[:, border_c_axis] - 0.0) < 0.001][:, other_axis])
-                    q1, q2, q1_addins, q2_addins = UpdateCellBorders(q1, q2, border_c_axis, other_axis)
+                    q1, q2, q1_addins, q2_addins, q1_remove, q2_remove = UpdateCellBorders(q1, q2, border_c_axis, other_axis)
                     #print('Added verts:', q1_addins.shape, q2_addins.shape)
+
+                    q1_border = q1_border[~q1_remove]
+                    q2_border = q2_border[~q2_remove]
+
+                    mesh_data[x_quad][y_quad] = (
+                        np.concatenate((q1, q1_addins), axis=0),
+                        None,
+                        np.concatenate((q1_border, np.full(len(q1_addins), True, dtype=bool)))
+                    )
+
                     if cycle == 0:
-                        mesh_data[x_quad][y_quad] = (np.concatenate((q1, q1_addins), axis=0), 
-                                                    None, 
-                                                    np.concatenate((mesh_data[x_quad][y_quad][2], np.full(len(q1_addins), True, dtype=bool)), axis=0))
-                        mesh_data[x_quad + 1][y_quad] = (np.concatenate((q2, q2_addins), axis=0), 
-                                                        None,
-                                                        np.concatenate((mesh_data[x_quad + 1][y_quad][2], np.full(len(q2_addins), True, dtype=bool)), axis=0))
+                        mesh_data[x_quad + 1][y_quad] = (
+                            np.concatenate((q2, q2_addins), axis=0),
+                            None,
+                            np.concatenate((q2_border, np.full(len(q2_addins), True, dtype=bool)))
+                        )
                     else:
-                        mesh_data[x_quad][y_quad] = (np.concatenate((q1, q1_addins), axis=0), 
-                                                    None, 
-                                                    np.concatenate((mesh_data[x_quad][y_quad][2], np.full(len(q1_addins), True, dtype=bool)), axis=0))
-                        mesh_data[x_quad][y_quad + 1] = (np.concatenate((q2, q2_addins), axis=0), 
-                                                        None,
-                                                        np.concatenate((mesh_data[x_quad][y_quad + 1][2], np.full(len(q2_addins), True, dtype=bool)), axis=0))
+                        mesh_data[x_quad][y_quad + 1] = (
+                            np.concatenate((q2, q2_addins), axis=0),
+                            None,
+                            np.concatenate((q2_border, np.full(len(q2_addins), True, dtype=bool)))
+                        )
+     
 
-
-def UpdateCellBorders(q1, q2, border_c_axis, other_axis, merging_sensitivity=50):
-
+def UpdateCellBorders(q1, q2, border_c_axis, other_axis, merging_sensitivity=50, snap_sensitivity=10):
     border_coord = (131072.0, 0.0)
-                    
-    q1_mask = np.full(len(q1), False, dtype=bool)
-    q2_mask = np.full(len(q2), False, dtype=bool)
-    q1_border_mask = np.full(len(q1), False, dtype=bool)
-    q2_border_mask = np.full(len(q2), False, dtype=bool)
-    q1_addins = np.zeros((len(q2), 3), dtype=np.float64)
-    #q1_new_edges = np.zeros((len(q2), 2), dtype=np.int32)
-    q1_idx = 0
-    q2_addins = np.zeros((len(q1), 3), dtype=np.float64)
-    #q2_new_edges = np.zeros((len(q1), 2), dtype=np.int32)
-    q2_idx = 0
-
-    for i in range(len(q1)):
-        if abs(q1[i][border_c_axis] - border_coord[0]) < 0.001:
-            q1_border_mask[i] = True
-            if q1[i][other_axis] % 4096.0 > 0.001:
-                q1_mask[i] = True
-    for i in range(len(q2)):
-        if abs(q2[i][border_c_axis] - border_coord[1]) < 0.001:
-            q2_border_mask[i] = True
-            if q2[i][other_axis] % 4096.0 > 0.001:
-                q2_mask[i] = True
-
-    q1_selected = q1[q1_border_mask]
-    q2_selected = q2[q2_border_mask]
-
-    q1_collapsable = q1_mask[q1_border_mask]
-    q2_collapsable = q2_mask[q2_border_mask]
-
-    q1_indices = np.nonzero(q1_border_mask)[0]
-    q2_indices = np.nonzero(q2_border_mask)[0]
-
-    combined_verts = np.concatenate((q1_selected, q2_selected), axis=0)
-    combined_indices = np.concatenate((q1_indices, q2_indices))
-    combined_sources = np.concatenate((np.full(len(q1_selected),0,dtype=np.int32), np.full(len(q2_selected),1,dtype=np.int32)))
-    combined_collapsable = np.concatenate((q1_collapsable, q2_collapsable))
-
-    sort_coords = combined_verts[:, other_axis]
-    sorted_indices = np.argsort(sort_coords)
-
+    
+    q1_border = np.abs(q1[:, border_c_axis] - border_coord[0]) < 0.001
+    q2_border = np.abs(q2[:, border_c_axis] - border_coord[1]) < 0.001
+    
+    q1_collapsable = q1_border & (q1[:, other_axis] % 4096.0 > 0.001)
+    q2_collapsable = q2_border & (q2[:, other_axis] % 4096.0 > 0.001)
+    
+    q1_non_collapsable = q1_border & ~q1_collapsable
+    q2_non_collapsable = q2_border & ~q2_collapsable
+    nc1_coords = q1[q1_non_collapsable, other_axis]
+    nc2_coords = q2[q2_non_collapsable, other_axis]
+    grid_coords = np.unique(np.concatenate([nc1_coords, nc2_coords]))
+    
+    q1_remove = np.zeros(len(q1), dtype=bool)
+    q2_remove = np.zeros(len(q2), dtype=bool)
+    
+    #first pass: remove collapsable vertices too close to grid intersections
+    for qi in np.where(q1_collapsable)[0]:
+        dists = np.abs(grid_coords - q1[qi, other_axis])
+        if dists.min() < snap_sensitivity:
+            q1_remove[qi] = True
+    
+    for qj in np.where(q2_collapsable)[0]:
+        dists = np.abs(grid_coords - q2[qj, other_axis])
+        if dists.min() < snap_sensitivity:
+            q2_remove[qj] = True
+    
+    #second pass: group remaining collapsable vertices within merging_sensitivity,
+    #merge each group to weighted average, remove extras (keep one per side)
+    q1_remaining = q1_collapsable & ~q1_remove
+    q2_remaining = q2_collapsable & ~q2_remove
+    q1_coll_idx = np.where(q1_remaining)[0]
+    q2_coll_idx = np.where(q2_remaining)[0]
+    
+    combined_coords = np.concatenate([q1[q1_coll_idx, other_axis], q2[q2_coll_idx, other_axis]])
+    combined_z = np.concatenate([q1[q1_coll_idx, 2], q2[q2_coll_idx, 2]])
+    combined_idx = np.concatenate([q1_coll_idx, q2_coll_idx])
+    combined_sources = np.concatenate([np.zeros(len(q1_coll_idx), dtype=int), np.ones(len(q2_coll_idx), dtype=int)])
+    
+    order = np.argsort(combined_coords)
+    combined_coords = combined_coords[order]
+    combined_z = combined_z[order]
+    combined_idx = combined_idx[order]
+    combined_sources = combined_sources[order]
+    
+    matched_q1 = np.zeros(len(q1), dtype=bool)
+    matched_q2 = np.zeros(len(q2), dtype=bool)
+    
     i = 0
-    while i < len(sorted_indices):
-        idx = sorted_indices[i]
-        if not combined_collapsable[idx]:
-            i = i + 1
-            continue
+    while i < len(combined_idx):
+        #collect group: all consecutive vertices within merging_sensitivity of the first
+        group_start = i
+        group_end = i + 1
+        while group_end < len(combined_idx) and combined_coords[group_end] - combined_coords[group_start] < merging_sensitivity:
+            group_end += 1
         
-
-        if i + 1 < len(sorted_indices):
-            next_idx = sorted_indices[i + 1]
-            if combined_collapsable[next_idx]: 
-                if combined_sources[idx] != combined_sources[next_idx]:
-                    if abs(combined_verts[idx, other_axis] - combined_verts[next_idx, other_axis]) < merging_sensitivity:
-                        #merging
-                        idx_1 = combined_indices[idx]
-                        idx_2 = combined_indices[next_idx]
-                        merged_vertex = np.zeros(3, dtype=np.float64)
-                        merged_vertex[border_c_axis] = border_coord[0]
-                        merged_vertex[other_axis] = 0.5 * (combined_verts[idx, other_axis] + combined_verts[next_idx, other_axis])
-                        merged_vertex[2] = 0.5 * (combined_verts[idx, 2] + combined_verts[next_idx, 2]) 
-                        
-                        merged_vertex2 = merged_vertex.copy()
-                        merged_vertex2[border_c_axis] = border_coord[1]
-
-                        
-                        if combined_sources[idx] == 0:
-                            q1[idx_1] = merged_vertex
-                            q2[idx_2] = merged_vertex2
-                        else:
-                            q2[idx_1] = merged_vertex2
-                            q1[idx_2] = merged_vertex
-                        i = i + 2
-                        continue
-
+        has_q1 = np.any(combined_sources[group_start:group_end] == 0)
+        has_q2 = np.any(combined_sources[group_start:group_end] == 1)
         
-        if combined_sources[idx] == 0:
-            q2_addins[q2_idx] = combined_verts[idx]
-            q2_addins[q2_idx, border_c_axis] = border_coord[1]
-            new_index = len(q2) + q2_idx 
-            second_edge_index = -1
-            for j in range(i + 1, len(sorted_indices)):
-                idx_ = sorted_indices[j]
-                if combined_sources[idx_] == 1: 
-                    second_edge_index = combined_indices[idx_]
-                    break
-
-
-                
-            q2_idx += 1
-
-        if combined_sources[idx] == 1:
-            q1_addins[q1_idx] = combined_verts[idx]
-            q1_addins[q1_idx, border_c_axis] = border_coord[0]
-            new_index = len(q1) + q1_idx 
-            second_edge_index = -1
-            for j in range(i + 1, len(sorted_indices)):
-                idx_ = sorted_indices[j]
-                if combined_sources[idx_] == 0: 
-                    second_edge_index = combined_indices[idx_]
-                    break
-
-
-            q1_idx += 1
+        if has_q1 and has_q2:
+            #merge: compute average position and Z across the group
+            avg_coord = combined_coords[group_start:group_end].mean()
+            avg_z = combined_z[group_start:group_end].mean()
             
-        i = i + 1
-
-    return q1, q2, q1_addins[:q1_idx], q2_addins[:q2_idx]
-
+            #keep first from each side, remove the rest
+            kept_q1 = False
+            kept_q2 = False
+            for k in range(group_start, group_end):
+                idx = combined_idx[k]
+                src = combined_sources[k]
+                if src == 0 and not kept_q1:
+                    q1[idx, other_axis] = avg_coord
+                    q1[idx, 2] = avg_z
+                    matched_q1[idx] = True
+                    kept_q1 = True
+                elif src == 1 and not kept_q2:
+                    q2[idx, other_axis] = avg_coord
+                    q2[idx, 2] = avg_z
+                    matched_q2[idx] = True
+                    kept_q2 = True
+                elif src == 0:
+                    q1_remove[idx] = True
+                elif src == 1:
+                    q2_remove[idx] = True
+        else:
+            #single-side group: keep only one, remove extras
+            kept = False
+            for k in range(group_start, group_end):
+                if not kept:
+                    kept = True
+                elif combined_sources[k] == 0:
+                    q1_remove[combined_idx[k]] = True
+                else:
+                    q2_remove[combined_idx[k]] = True
+        
+        i = group_end
+    
+    # Third pass: unmatched collapsable vertices get copied to the other quad
+    q1_addins = []
+    q2_addins = []
+    
+    q1_border_coords = q1[q1_border & ~q1_remove, other_axis]
+    q2_border_coords = q2[q2_border & ~q2_remove, other_axis]
+    
+    for qj in np.where(q2_remaining & ~matched_q2 & ~q2_remove)[0]:
+        coord = q2[qj, other_axis]
+        if np.abs(q1_border_coords - coord).min() < snap_sensitivity:
+            continue
+        addin = q2[qj].copy()
+        addin[border_c_axis] = border_coord[0]
+        q1_addins.append(addin)
+    
+    for qi in np.where(q1_remaining & ~matched_q1 & ~q1_remove)[0]:
+        coord = q1[qi, other_axis]
+        if np.abs(q2_border_coords - coord).min() < snap_sensitivity:
+            continue
+        addin = q1[qi].copy()
+        addin[border_c_axis] = border_coord[1]
+        q2_addins.append(addin)
+    
+    q1 = q1[~q1_remove]
+    q2 = q2[~q2_remove]
+    q1_addins = np.array(q1_addins).reshape(-1, 3) if q1_addins else np.zeros((0, 3), dtype=np.float64)
+    q2_addins = np.array(q2_addins).reshape(-1, 3) if q2_addins else np.zeros((0, 3), dtype=np.float64)
+    
+    return q1, q2, q1_addins, q2_addins, q1_remove, q2_remove
 
 
 @njit(cache=True)
