@@ -128,6 +128,8 @@ class LODSettingsWindow(ctk.CTkToplevel):
             subtitle_parts = [ws["plugin"]]
             if ws["small_world"]:
                 subtitle_parts.append("· small world")
+            subtitle_parts.append("· " + f"{ws['cell_num']} cells")
+            subtitle_parts.append("· " + f"[{ws['bounds'][0]:.0f}:{ws['bounds'][2]:.0f} , {ws['bounds'][1]:.0f}:{ws['bounds'][3]:.0f}]")
             subtitle = "    " + "  ".join(subtitle_parts)
 
             ctk.CTkLabel(row, text=subtitle,
