@@ -101,7 +101,7 @@ class LODSettingsWindow(ctk.CTkToplevel):
         # ================= COLUMN 1: WORLDSPACES =============================
         _, ws_content = section_card(col1, "Worldspaces", expand=True,
                                      description=f"{len(worldspace_list)} found")
-                                            description=f"{len(worldspace_list)} found")
+ 
         ws_btn_row = ctk.CTkFrame(ws_content, fg_color="transparent")
         ws_btn_row.pack(fill="x", pady=(0, 4), padx=4)
         
