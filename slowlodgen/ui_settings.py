@@ -101,6 +101,24 @@ class LODSettingsWindow(ctk.CTkToplevel):
         # ================= COLUMN 1: WORLDSPACES =============================
         _, ws_content = section_card(col1, "Worldspaces", expand=True,
                                      description=f"{len(worldspace_list)} found")
+                                            description=f"{len(worldspace_list)} found")
+        ws_btn_row = ctk.CTkFrame(ws_content, fg_color="transparent")
+        ws_btn_row.pack(fill="x", pady=(0, 4), padx=4)
+        
+        def _select_ws(mode):
+            for ws in worldspace_list:
+                eid = ws["editor_id"]
+                if mode == "none":
+                    self.worldspace_vars[eid].set(False)
+                elif mode == "all":
+                    self.worldspace_vars[eid].set(True)
+                elif mode == "non_small":
+                    self.worldspace_vars[eid].set(not ws["small_world"])
+
+        for label, mode in [("Select non-small", "non_small"), ("Select All", "all"), ("Select None", "none")]:
+            ctk.CTkButton(ws_btn_row, text=label, width=100, height=24,
+                        font=("Segoe UI", 11),
+                        command=lambda m=mode: _select_ws(m)).pack(side="left", padx=(0, 4))
 
         ws_scroll = ctk.CTkScrollableFrame(ws_content, corner_radius=6)
         ws_scroll.pack(fill="both", expand=True)
