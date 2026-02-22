@@ -20,7 +20,8 @@ import dataclasses
 from dataclasses import dataclass, field
 import tomllib
 import multiprocessing
-
+import numba
+from numba import njit, prange, types
 
 if sys.platform == 'win32':
     import ctypes
@@ -709,6 +710,19 @@ try:
             dm_SE = distance_matrix_SE[..., np.newaxis]
             dm_SW = distance_matrix_SW[..., np.newaxis]
 
+            @njit
+            def CheckLTEXAvailability(texture_id_points, ltex_to_texture_hashed):
+                missing = False
+                for i in range(32):
+                    for j in range(32):
+                        for k in range(9):
+                            val = texture_id_points[i, j, k]
+                            if val == 0:
+                                continue
+                            if numba.int64(val) not in ltex_to_texture_hashed:
+                                missing = True
+                                texture_id_points[i, j, k] = 0
+                return missing, texture_id_points
 
                 
             def GenerateTextureMaps(texture_id_map, opacity_map, vertex_color_map, file_name, folder, ao_data):
@@ -857,6 +871,10 @@ try:
                                 land_record = cell_data[worldspace][x_cell][y_cell]
                                 #height_map_cell = land_record.parse_land_data_VGHT_only()
                                 texture_id_points, opacity_points, vertex_colors, normals, height_map_cell = land_record.parse_land_data()
+                                
+                                missing, texture_id_points = CheckLTEXAvailability(texture_id_points, ltex_to_texture_hashed)
+                                if missing:
+                                    logging.warning(f"Invalid texture IDs found in cell {x_cell}, {y_cell} in land record {land_record.form_id:08X}")
                                 texture_id_map[y*32:(y+1)*32, x*32:(x+1)*32] = texture_id_points
                                 opacity_map[y*32:(y+1)*32, x*32:(x+1)*32] = opacity_points
                                 vertex_color_map[y*32:(y+1)*32, x*32:(x+1)*32] = vertex_colors
