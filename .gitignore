@@ -3,3 +3,7 @@ output.log
 /__numba_cache__
 /dist
 /build
+/diagnostic_output
+analyze_crash_geometry.py
+diagnose_triangle.py
+slowlandscapelodgen.py.lprof

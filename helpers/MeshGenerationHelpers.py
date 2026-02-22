@@ -621,8 +621,6 @@ def save_obj(vertices,triangles, filepath):
 #0.0 and 131072.0
 def UpdateCellBordersWrapper(mesh_data):
 
-            )   
-
 
     for x_quad in  mesh_data:
         for y_quad in mesh_data[x_quad]:
