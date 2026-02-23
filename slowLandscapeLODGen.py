@@ -1129,11 +1129,11 @@ try:
                             if cfg.mesh.multithreaded:
                                 results = GenerateLODMeshDataWrapper(worldspace_heightmap, quads, x_low, y_low, counter, 
                                                                     target_verts=cfg.mesh.target_vertices, min_error=cfg.mesh.mesh_min_error, 
-                                                                    vertices_batch=cfg.mesh.vertices_batch)
+                                                                    vertices_batch=cfg.mesh.vertices_batch, max_error_resort_skip=cfg.mesh.max_error_resort_skip)
                             else:
                                 results = GenerateLODMeshDataWrapperST(worldspace_heightmap, quads, x_low, y_low, counter, 
                                                                     target_verts=cfg.mesh.target_vertices, min_error=cfg.mesh.mesh_min_error, 
-                                                                    vertices_batch=cfg.mesh.vertices_batch)
+                                                                    vertices_batch=cfg.mesh.vertices_batch, max_error_resort_skip=cfg.mesh.max_error_resort_skip)
                             for thread in range(counter):
                                 mesh_data[quads[thread, 0]][quads[thread, 1]] = results[thread]
                             quads = np.full((counter, 2), -1, dtype=np.int32)
@@ -1144,11 +1144,11 @@ try:
                     if cfg.mesh.multithreaded:
                         results = GenerateLODMeshDataWrapper(worldspace_heightmap, quads, x_low, y_low, counter, 
                                                             target_verts=cfg.mesh.target_vertices, min_error=cfg.mesh.mesh_min_error, 
-                                                            vertices_batch=cfg.mesh.vertices_batch)
+                                                            vertices_batch=cfg.mesh.vertices_batch, max_error_resort_skip=cfg.mesh.max_error_resort_skip)
                     else:
                         results = GenerateLODMeshDataWrapperST(worldspace_heightmap, quads, x_low, y_low, counter, 
                                                             target_verts=cfg.mesh.target_vertices, min_error=cfg.mesh.mesh_min_error, 
-                                                            vertices_batch=cfg.mesh.vertices_batch)
+                                                            vertices_batch=cfg.mesh.vertices_batch, max_error_resort_skip=cfg.mesh.max_error_resort_skip)
                     for thread in range(counter):
                         mesh_data[quads[thread, 0]][quads[thread, 1]] = results[thread]
 

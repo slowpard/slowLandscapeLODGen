@@ -16,6 +16,7 @@ class GeneralSettings:
 class MeshSettings:
     vertices_batch: float = 0.8
     mesh_min_error: int = 500_000
+    max_error_resort_skip: int = 50_000
     current_vert_abs_minimum: int = 1089
     first_loop_min_error: int = 500
     target_triangles: int = 62_000

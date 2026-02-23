@@ -501,7 +501,7 @@ def is_positive_semidefinite(M, tol=1e-14):
 @njit(fastmath=True, cache=True)
 def simplify_mesh(vertices_array, triangles_array, edges_array,
                   vertex_quadrics_array, edge_cost, edges_collapse, weights_array, horizontal_border, vertical_border, 
-                  target_verts=30000, min_error=500000, first_loop_min_error=500, vertices_batch=0.8, current_vert_abs_minimum=1089):
+                  target_verts=30000, min_error=500000, first_loop_min_error=500, vertices_batch=0.8, current_vert_abs_minimum=1089, max_error_resort_skip=50000):
     #QEM decimation with some very not math-strict adjustments https://www.cs.cmu.edu/~./garland/Papers/quadrics.pdf
     
 
@@ -570,7 +570,7 @@ def simplify_mesh(vertices_array, triangles_array, edges_array,
         if not edge_valid[e_idx]:
             continue
 
-        if edge_cost[e_idx] > edge_cost_old[e_idx] and edge_cost[e_idx] > min_error: #> np.float64(1e-6): #cost was updated and became higher, wait till full sort
+        if edge_cost[e_idx] > edge_cost_old[e_idx] and edge_cost[e_idx] > max_error_resort_skip: #> np.float64(1e-6): #cost was updated and became higher, wait till full sort
             continue
 
         v0, v1 = edges_array[e_idx]
@@ -907,7 +907,7 @@ def UpdateCellBorders(q1, q2, border_c_axis, other_axis, merging_sensitivity=50,
 
 
 @njit(cache=True)
-def GenerateLODMeshData(height_map, target_verts, min_error, vertices_batch):
+def GenerateLODMeshData(height_map, target_verts, min_error, vertices_batch, max_error_resort_skip):
     #logging.info('Generating LOD mesh...')
     #print(height_map.shape)
     f_x, f_y, f_xx, f_yy, f_xy = calculate_derivative_maps(height_map)
@@ -941,7 +941,7 @@ def GenerateLODMeshData(height_map, target_verts, min_error, vertices_batch):
    
     vertex_valid = simplify_mesh(vertices_array, triangles_array, edges_array,
                     vertice_quadrics_array, edges_cost, edges_collapse, weights_array, horizontal_border, vertical_border,
-                    target_verts = target_verts, min_error = min_error, vertices_batch = vertices_batch, current_vert_abs_minimum=1089)
+                    target_verts = target_verts, min_error = min_error, vertices_batch = vertices_batch, current_vert_abs_minimum=1089, max_error_resort_skip=max_error_resort_skip)
     
     
     #vertices_array, vertex_valid, h_chains, v_chains = simplify_mesh(vertices_array, triangles_array, edges_array,
@@ -977,7 +977,7 @@ def GenerateLODMeshData(height_map, target_verts, min_error, vertices_batch):
 
     
 @njit(parallel=True, cache=True)
-def GenerateLODMeshDataWrapper(worldspace_heightmap, quads, x_low, y_low, counter, target_verts, min_error, vertices_batch):
+def GenerateLODMeshDataWrapper(worldspace_heightmap, quads, x_low, y_low, counter, target_verts, min_error, vertices_batch, max_error_resort_skip):
 
     dummy_verts = np.empty((0, 3), dtype=np.float64)
     dummy_pairs = np.empty((0, 2), dtype=np.int32)
@@ -998,7 +998,7 @@ def GenerateLODMeshDataWrapper(worldspace_heightmap, quads, x_low, y_low, counte
         
         height_map = worldspace_heightmap[y_pos:y_pos_end, x_pos:x_pos_end]
 
-        vertices_array, pairs, boundary = GenerateLODMeshData(height_map, target_verts=target_verts, min_error=min_error, vertices_batch=vertices_batch)
+        vertices_array, pairs, boundary = GenerateLODMeshData(height_map, target_verts=target_verts, min_error=min_error, vertices_batch=vertices_batch, max_error_resort_skip=max_error_resort_skip)
         results_list[thread] = (vertices_array, pairs, boundary)
 
     return results_list
@@ -1007,7 +1007,7 @@ def GenerateLODMeshDataWrapper(worldspace_heightmap, quads, x_low, y_low, counte
 
 
 @njit(cache=True)
-def GenerateLODMeshDataWrapperST(worldspace_heightmap, quads, x_low, y_low, counter, target_verts, min_error, vertices_batch):
+def GenerateLODMeshDataWrapperST(worldspace_heightmap, quads, x_low, y_low, counter, target_verts, min_error, vertices_batch, max_error_resort_skip):
 
     dummy_verts = np.empty((0, 3), dtype=np.float64)
     dummy_pairs = np.empty((0, 2), dtype=np.int32)
@@ -1028,7 +1028,7 @@ def GenerateLODMeshDataWrapperST(worldspace_heightmap, quads, x_low, y_low, coun
         
         height_map = worldspace_heightmap[y_pos:y_pos_end, x_pos:x_pos_end]
 
-        vertices_array, pairs, boundary = GenerateLODMeshData(height_map, target_verts=target_verts, min_error=min_error, vertices_batch=vertices_batch)
+        vertices_array, pairs, boundary = GenerateLODMeshData(height_map, target_verts=target_verts, min_error=min_error, vertices_batch=vertices_batch, max_error_resort_skip=max_error_resort_skip)
         results_list[thread] = (vertices_array, pairs, boundary)
 
     return results_list
