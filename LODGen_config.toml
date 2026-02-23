@@ -25,8 +25,9 @@ generate_color_maps = true
 use_enginebugfixes_naming_scheme = "Auto"
 
 [mesh]
-vertices_batch = 0.8
+vertices_batch = 0.92
 mesh_min_error = 500000
+max_error_resort_skip = 50000
 current_vert_abs_minimum = 1089
 first_loop_min_error = 500
 target_triangles = 62000
