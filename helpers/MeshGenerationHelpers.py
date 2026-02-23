@@ -804,6 +804,15 @@ def UpdateCellBorders(q1, q2, border_c_axis, other_axis, merging_sensitivity=50,
         dists = np.abs(grid_coords - q2[qj, other_axis])
         if dists.min() < snap_sensitivity:
             q2_remove[qj] = True
+
+    #pass 1.5 -- non-collapsable verts
+    for qi in np.where(q1_non_collapsable)[0]:
+        for qj in np.where(q2_non_collapsable)[0]:
+            if abs(q1[qi, other_axis] - q2[qj, other_axis]) < 0.001:
+                avg_z = 0.5 * (q1[qi, 2] + q2[qj, 2])
+                q1[qi, 2] = avg_z
+                q2[qj, 2] = avg_z
+
     
     #second pass: group remaining collapsable vertices within merging_sensitivity,
     #merge each group to weighted average, remove extras (keep one per side)
