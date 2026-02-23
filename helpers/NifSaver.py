@@ -112,7 +112,10 @@ def SaveGeometryIntoNif(final_verts, final_triangles, quad, folder, file_name, v
     nif.roots.append(nitristrip)
     if not os.path.exists(os.path.join(folder, r'meshes\landscape\lod')):
         os.makedirs(os.path.join(folder, r'meshes\landscape\lod'))
-    new_stream = open((os.path.join(folder, r'meshes\landscape\lod', file_name + '.nif')), 'wb')
+    mesh_path = os.path.join(folder, r'meshes\landscape\lod', file_name + '.nif')
+    if not os.path.exists(os.path.dirname(mesh_path)):
+        os.makedirs(os.path.dirname(mesh_path))
+    new_stream = open(mesh_path, 'wb')
     nif.write(new_stream)
     new_stream.close()
 
@@ -204,7 +207,7 @@ def get_height_at_xy(x, y, worldspace_heightmap, x_low, y_low):
 
 
 
-def GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, folder, form_id, tool_dir):
+def GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, folder, form_id, tool_dir, filename_func):
     
     '''
     def get_border_segments(verts, border_mask, border_axis):
@@ -226,7 +229,8 @@ def GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, fold
 
             #print('Quad ', (x_quad, y_quad))
             quad = (x_quad, y_quad)
-            file_name = f'{form_id}.{(x_quad*32):02}.{(y_quad*32):02}.32'
+            #file_name = f'{form_id}.{(x_quad*32):02}.{(y_quad*32):02}.32'
+            file_name = filename_func(form_id, worldspace, quad)
             logging.info(f"Saving {worldspace} {quad}: {file_name}.nif...")
             pairs = []
 

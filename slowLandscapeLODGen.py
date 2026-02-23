@@ -1157,6 +1157,7 @@ try:
 
                 ###################NIF GENERATION#####################
                 GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, folder, form_id, TOOL_DIR)
+                GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, folder, form_id, TOOL_DIR, GetFilenameForFile)
 
                 mesh_data = None
 
