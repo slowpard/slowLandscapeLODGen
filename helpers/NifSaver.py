@@ -243,7 +243,7 @@ def GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, fold
                 other = 1 - axis
                 coords = border_verts[:, axis]
                 nearest_grid = np.round(coords / 4096.0) * 4096.0
-                on_grid = np.abs(coords - nearest_grid) < 1.0
+                on_grid = np.abs(coords - nearest_grid) < 0.5
 
                 grid_lines = np.unique(nearest_grid[on_grid])
 
@@ -311,14 +311,17 @@ def GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, fold
                     pairs = np.concatenate([pairs, np.array(border_segs)], axis=0) if len(pairs) > 0 else np.array(border_segs)'''
 
             
-            angle = 15
+            angle = 10
             tris = None
             
             while angle > 2:
                 logging.info(f"Triangulating {worldspace} {quad} with max. angle {int(angle)}... "
                              f"(verts: {len(verts_2d)}, segments: {len(pairs)})")
                 try:
+                    verts_before = len(verts_2d)
                     tris = triangulate_safe(verts_2d, pairs, tool_dir, f'pYq{int(angle)}')
+                    verts_after = len(tris['vertices'])
+                    logging.info(f"Triangulation added {verts_after - verts_before} Steiner points, total number of verts: {(verts_after - verts_before) / verts_before:.1%}")
                 except RuntimeError as e:
                     logging.warning(f"High-quality triangulation failed on {quad}: {e}")
                     break  
@@ -499,3 +502,4 @@ def apply_pyffi_patches():
     pyffi.formats.nif.NifFormat.Triangle.write = Triangle_fast_write
     pyffi.formats.nif.NifFormat.TexCoord.write = TexCoord_fast_write 
     setattr(pyffi.formats.nif.NifFormat.Vector3, 'x', property(Vector3_get_x_value, Vector3_set_x_value))
+
