@@ -1162,6 +1162,8 @@ try:
 
 
             height_map, worldspace_heightmap, results = None, None, None
+        
+        logging.info('LOD generation completed.')
 
 except Exception as e:
     logging.exception("slowLODGen crashed:")
