@@ -249,7 +249,94 @@ def inverse_3x3(matrix, det):
 
 
 FLOAT64_ZERO_ONE = np.array([0, 0, 0, 1], dtype=np.float64)
+
+
+@njit(fastmath=True, cache=True)
+def solve_optimal_z(x, y, q1, q2, w1, w2, v0_z, v1_z):
+
+    ''' E = sum(q_ij * v_i * v_j) where v = (x, y, z, 1)
+    E(z) = Q[2,2] * z^2 + 2*(Q[0,2]*x + Q[1,2]*y + Q[2,3])*z + C
+    de/dz = 2*Q[2,2]*z + 2*(Q[0,2]*x + Q[1,2]*y + Q[2,3]) = 0
+    z = -(Q[0,2]*x + Q[1,2]*y + Q[2,3]) / Q[2,2]
+    '''
+
+    a = w1 * q1[2, 2] + w2 * q2[2, 2]
+    b = (w1 * q1[0, 2] + w2 * q2[0, 2]) * x + \
+        (w1 * q1[1, 2] + w2 * q2[1, 2]) * y + \
+        (w1 * q1[2, 3] + w2 * q2[2, 3])
     
+    if abs(a) < 1e-6:
+        return (v0_z * w1 + v1_z * w2) / (w1 + w2)
+    
+    z = -b / a
+
+    z_lo = min(v0_z, v1_z)
+    z_hi = max(v0_z, v1_z)
+
+    if z < z_lo or z > z_hi:
+        return (v0_z * w1 + v1_z * w2) / (w1 + w2)
+    
+    return z
+
+@njit(fastmath=True, cache=True)
+def solve_optimal_xz(y, q1, q2, w1, w2, v0, v1):
+
+    '''E = sum(Q_ij * v_i * v_j) where v = (x, y, z, 1), y fixed
+    dE/dx = 2*Q[0,0]*x + 2*Q[0,2]*z + 2*(Q[0,1]*y + Q[0,3]) = 0
+    dE/dz = 2*Q[0,2]*x + 2*Q[2,2]*z + 2*(Q[1,2]*y + Q[2,3]) = 0
+
+    | Q[0,0]  Q[0,2] |   | x |     | Q[0,1]*y + Q[0,3] |
+    | Q[0,2]  Q[2,2] | * | z | = - | Q[1,2]*y + Q[2,3] |'''
+
+    a00 = w1 * q1[0, 0] + w2 * q2[0, 0]
+    a02 = w1 * q1[0, 2] + w2 * q2[0, 2]
+    a22 = w1 * q1[2, 2] + w2 * q2[2, 2]
+
+    b0 = (w1 * q1[0, 1] + w2 * q2[0, 1]) * y + (w1 * q1[0, 3] + w2 * q2[0, 3])
+    b2 = (w1 * q1[1, 2] + w2 * q2[1, 2]) * y + (w1 * q1[2, 3] + w2 * q2[2, 3])
+
+    det = a00 * a22 - a02 * a02
+    if abs(det) < 1e-6:
+        x_opt = (w1 * v0[0] + w2 * v1[0]) / (w1 + w2)
+        z_opt = (w1 * v0[2] + w2 * v1[2]) / (w1 + w2)
+        return x_opt, z_opt
+
+    x_opt = (-a22 * b0 + a02 * b2) / det
+    z_opt = (a02 * b0 - a00 * b2) / det
+
+    if (x_opt < min(v0[0], v1[0]) or x_opt > max(v0[0], v1[0]) or
+        z_opt < min(v0[2], v1[2]) or z_opt > max(v0[2], v1[2])):
+        x_opt = (w1 * v0[0] + w2 * v1[0]) / (w1 + w2)
+        z_opt = (w1 * v0[2] + w2 * v1[2]) / (w1 + w2)
+
+    return x_opt, z_opt   
+
+@njit(fastmath=True, cache=True)
+def solve_optimal_yz(x, q1, q2, w1, w2, v0, v1):
+    a11 = w1 * q1[1, 1] + w2 * q2[1, 1]
+    a12 = w1 * q1[1, 2] + w2 * q2[1, 2]
+    a22 = w1 * q1[2, 2] + w2 * q2[2, 2]
+
+    b1 = (w1 * q1[0, 1] + w2 * q2[0, 1]) * x + (w1 * q1[1, 3] + w2 * q2[1, 3])
+    b2 = (w1 * q1[0, 2] + w2 * q2[0, 2]) * x + (w1 * q1[2, 3] + w2 * q2[2, 3])
+
+    det = a11 * a22 - a12 * a12
+    if abs(det) < 1e-12:
+        y_opt = (w1 * v0[1] + w2 * v1[1]) / (w1 + w2)
+        z_opt = (w1 * v0[2] + w2 * v1[2]) / (w1 + w2)
+        return y_opt, z_opt
+
+    y_opt = (-a22 * b1 + a12 * b2) / det
+    z_opt = (a12 * b1 - a11 * b2) / det
+
+    if (y_opt < min(v0[1], v1[1]) or y_opt > max(v0[1], v1[1]) or
+        z_opt < min(v0[2], v1[2]) or z_opt > max(v0[2], v1[2])):
+        y_opt = (w1 * v0[1] + w2 * v1[1]) / (w1 + w2)
+        z_opt = (w1 * v0[2] + w2 * v1[2]) / (w1 + w2)
+
+    return y_opt, z_opt
+
+
 @njit(fastmath=True, cache=True)
 def edge_cost_evaluation(v0, v1, q1, q2, w1, w2, v0_is_boundary, v1_is_boundary, v0_h, v1_h, v0_v, v1_v):
     
@@ -268,35 +355,44 @@ def edge_cost_evaluation(v0, v1, q1, q2, w1, w2, v0_is_boundary, v1_is_boundary,
                 high_cost_flag = True
                 optimum = (w1 / (w1 + w2) * v0 + w2 / (w1 + w2) * v1)
             else:
-                optimum = v0
-                #optimum[2] = (w1 / (w1 + w2) * v0[2] + w2 / (w1 + w2) * v1[2])
+                optimum = v0.copy()
+                optimum[2] = solve_optimal_z(v0[0], v0[1], q1, q2, w1, w2, v0[2], v1[2])
         else:
             if v1_h and v1_v:
-                optimum = v1
-                #optimum[2] = (w1 / (w1 + w2) * v0[2] + w2 / (w1 + w2) * v1[2])
+                optimum = v1.copy()
+                optimum[2] = solve_optimal_z(v1[0], v1[1], q1, q2, w1, w2, v0[2], v1[2])
             elif v1_v:
                 high_cost_flag = True
                 optimum = (w1 / (w1 + w2) * v0 + w2 / (w1 + w2) * v1)
             elif v1_h:
-                optimum = (w1 / (w1 + w2) * v0 + w2 / (w1 + w2) * v1)
+                grid_y = v0[1]
+                mid_x, opt_z = solve_optimal_xz(grid_y, q1, q2, w1, w2, v0, v1)
+                optimum[0] = mid_x
+                optimum[1] = grid_y
+                optimum[2] = opt_z
             else:
-                optimum = v0
-                #optimum[2] = (w1 / (w1 + w2) * v0[2] + w2 / (w1 + w2) * v1[2])  
+                optimum = v0.copy()
+                optimum[2] = solve_optimal_z(v0[0], v0[1], q1, q2, w1, w2, v0[2], v1[2])
+
     elif v0_v:
         if v1_h and v1_v:
-            optimum = v1
-            #optimum[2] = (w1 / (w1 + w2) * v0[2] + w2 / (w1 + w2) * v1[2])
+            optimum = v1.copy()
+            optimum[2] = solve_optimal_z(v1[0], v1[1], q1, q2, w1, w2, v0[2], v1[2])
         elif v1_h:
             high_cost_flag = True
             optimum = (w1 / (w1 + w2) * v0 + w2 / (w1 + w2) * v1)
         elif v1_v:
-            optimum = (w1 / (w1 + w2) * v0 + w2 / (w1 + w2) * v1)
+            grid_x = v0[0]
+            mid_y, opt_z = solve_optimal_yz(grid_x, q1, q2, w1, w2, v0, v1)
+            optimum[0] = grid_x
+            optimum[1] = mid_y
+            optimum[2] = opt_z
         else:
-            optimum = v0
-            #optimum[2] = (w1 / (w1 + w2) * v0[2] + w2 / (w1 + w2) * v1[2])
+            optimum = v0.copy()
+            optimum[2] = solve_optimal_z(v0[0], v0[1], q1, q2, w1, w2, v0[2], v1[2])
     elif v1_h or v1_v:
-        optimum = v1
-        #optimum[2] = (w1 / (w1 + w2) * v0[2] + w2 / (w1 + w2) * v1[2])
+        optimum = v1.copy()
+        optimum[2] = solve_optimal_z(v1[0], v1[1], q1, q2, w1, w2, v0[2], v1[2])
 
     else:
         
