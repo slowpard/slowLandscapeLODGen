@@ -136,7 +136,7 @@ def build_base_normal_map_vertexbaking(vertex_normals_a, normal_map_dimension, z
                   vertex_normals_a[p2_y, p2_x, 1] * w)
             nz = ((vertex_normals_a[p0_y, p0_x, 2] * u +
                   vertex_normals_a[p1_y, p1_x, 2] * v +
-                  vertex_normals_a[p2_y, p2_x, 2] * w)) * z_boost
+                  vertex_normals_a[p2_y, p2_x, 2] * w)) / z_boost
             
 
             inv_len = 1.0 / math.sqrt(nx*nx + ny*ny + nz*nz)
