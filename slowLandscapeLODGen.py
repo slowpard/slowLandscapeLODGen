@@ -64,6 +64,9 @@ from slowlodgen.ui_pluginselection import *
 from slowlodgen.config import *
 apply_pyffi_patches()
 
+if getattr(sys, 'frozen', False):
+    sys.stderr = open(os.path.join(TOOL_DIR, 'output.log'), 'a')
+
 class ElapsedFilter(logging.Filter):
     def filter(self, record):
         record.elapsed = time.time() - start_time
