@@ -1082,8 +1082,11 @@ try:
 
                 x_low = math.floor(worldspace_bounds[worldspace][0]/32)*32 - 2
                 y_low = math.floor(worldspace_bounds[worldspace][1]/32)*32 - 2
-                x_high = math.ceil(worldspace_bounds[worldspace][2]/32)*32 + 2
-                y_high = math.ceil(worldspace_bounds[worldspace][3]/32)*32 + 2
+                x_high = (math.floor(worldspace_bounds[worldspace][2]/32) + 1)*32 + 2
+                y_high = (math.floor(worldspace_bounds[worldspace][3]/32) + 1)*32 + 2
+
+
+
                 x_size = x_high - x_low + 1 
                 y_size = y_high - y_low + 1
 
