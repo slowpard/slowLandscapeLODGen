@@ -263,7 +263,7 @@ try:
 
 
     current_load_order = sort_esp_list(enabled_plugins, folder)
-    load_order_lowercase = [x.lower() for x in current_load_order]
+
 
 
     def get_plugin_files(folder_path):
@@ -287,7 +287,6 @@ try:
     load_order = app.ShowPluginsSelection(esps_in_data, current_load_order)
     app.quit()
 
-
     if load_order is None:
         logging.critical("No plugins selected. Exiting.")
         exit()
@@ -296,6 +295,7 @@ try:
         logging.critical("Too many plugins selected. Exiting.")
         exit()
 
+    load_order_lowercase = [x.lower() for x in load_order]
 
     logging.info(f'{load_order}')
 
