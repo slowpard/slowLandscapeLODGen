@@ -1,4 +1,3 @@
-
 import customtkinter as ctk
 import os
 import logging
@@ -169,6 +168,43 @@ class LODSettingsWindow(ctk.CTkToplevel):
         self.use_ebf_naming.pack(anchor="w", pady=(2, 0))
         ToolTip(self.use_ebf_naming,
                 '"Auto" detects EngineBugFixes automatically.')
+
+        # -- Output Folder ----------------------------------------------------
+        ctk.CTkLabel(gen_content, text="Output folder:",
+                     font=("Segoe UI", 12)).pack(anchor="w", pady=(10, 2))
+
+        self._output_folder = cfg.paths.output_folder
+        self._default_folder = cfg.paths.oblivion_folder
+
+        out_row = ctk.CTkFrame(gen_content, fg_color="transparent")
+        out_row.pack(fill="x")
+
+        is_default = (self._output_folder == self._default_folder)
+        display_text = "[default folder]" if is_default else self._output_folder
+        label_font = ("Segoe UI", 11) if is_default else ("Segoe UI Bold", 11)
+
+        self._output_folder_label = ctk.CTkLabel(
+            out_row, text=display_text, font=label_font,
+            anchor="w", wraplength=220)
+        self._output_folder_label.pack(side="left", fill="x", expand=True, padx=(0, 4))
+
+        btn_row = ctk.CTkFrame(gen_content, fg_color="transparent")
+        btn_row.pack(anchor="w", pady=(4, 0))
+
+        ctk.CTkButton(btn_row, text="Browse…", width=70, height=24,
+                      font=("Segoe UI", 11),
+                      command=self._browse_output_folder).pack(side="left", padx=(0, 4))
+
+        self._reset_folder_btn = ctk.CTkButton(
+            btn_row, text="Reset", width=50, height=24,
+            font=("Segoe UI", 11),
+            command=self._reset_output_folder)
+        self._reset_folder_btn.pack(side="left")
+        if is_default:
+            self._reset_folder_btn.configure(state="disabled")
+
+        ToolTip(self._output_folder_label,
+                f"Default: {self._default_folder}")
 
         # -- LOD Texture ------------------------------------------------------
         _, tex_outer = section_card(col2, "LOD Texture", expand=True)
@@ -366,6 +402,31 @@ class LODSettingsWindow(ctk.CTkToplevel):
 
         return row, slider
 
+    # --- Output Folder --------------------------------------------------------
+    def _browse_output_folder(self):
+        from tkinter import filedialog
+        folder = filedialog.askdirectory(
+            parent=self, title="Select Output Folder",
+            initialdir=self._output_folder)
+        if folder:
+            self._output_folder = os.path.normpath(folder)
+            self._refresh_output_folder_display()
+
+    def _reset_output_folder(self):
+        self._output_folder = self._default_folder
+        self._refresh_output_folder_display()
+
+    def _refresh_output_folder_display(self):
+        is_default = (self._output_folder == self._default_folder)
+        if is_default:
+            self._output_folder_label.configure(
+                text="[default folder]", font=("Segoe UI", 11))
+            self._reset_folder_btn.configure(state="disabled")
+        else:
+            self._output_folder_label.configure(
+                text=self._output_folder, font=("Segoe UI Bold", 11))
+            self._reset_folder_btn.configure(state="normal")
+
     # --- Toggles --------------------------------------------------------------
     def _toggle_texture(self):
         if self.texture_enabled.get():
@@ -427,6 +488,8 @@ class LODSettingsWindow(ctk.CTkToplevel):
         cfg.general.generate_color_maps = self.texture_enabled.get()
         cfg.general.generate_normal_maps = self.normal_enabled.get()
         cfg.general.generate_meshes = self.mesh_enabled.get()
+
+        cfg.paths.output_folder = self._output_folder
 
         cfg.texture.texture_dimension = int(self.texture_resolution.get())
         cfg.texture.internal_dimension = int(self.texture_internal_resolution.get())

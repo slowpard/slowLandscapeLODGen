@@ -67,6 +67,7 @@ gamma_max = 0.85
 # Leave commented to auto-detect, or set explicit paths
 #oblivion_folder = "S:\\Oblivion GOG Edition\\Oblivion"
 #plugins_txt = "S:\\Oblivion GOG Edition\\Oblivion\\plugins.txt"
+#output_folder = "S:\\Oblivion GOG Edition\\MO2 Mods\\LODGenOutput"
 
 [bsa]
 hardcoded_bsas = [

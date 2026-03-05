@@ -110,6 +110,7 @@ class AOSettings:
 class PathSettings:
     oblivion_folder: Optional[str] = None
     plugins_txt: Optional[str] = None
+    output_folder: Optional[str] = None
 
 
 

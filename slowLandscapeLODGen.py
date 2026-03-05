@@ -206,12 +206,12 @@ try:
 
 
 
-    folder = resolve_data_folder(cfg.paths.oblivion_folder)
-    plugins_txt = resolve_plugins_txt(cfg.paths.plugins_txt, folder)
+    cfg.paths.oblivion_folder = resolve_data_folder(cfg.paths.oblivion_folder)
+    cfg.paths.plugins_txt = resolve_plugins_txt(cfg.paths.plugins_txt, cfg.paths.oblivion_folder)
+    cfg.paths.output_folder = cfg.paths.oblivion_folder
 
-    logging.info("Oblivion path: " + folder)
-    logging.info("plugins.txt path: " + plugins_txt)
-
+    logging.info("Oblivion path: " + cfg.paths.oblivion_folder)
+    logging.info("plugins.txt path: " + cfg.paths.plugins_txt)
 
     def is_esm(file_path):
         try:
@@ -258,11 +258,11 @@ try:
 
         return [n[0] for n in sorted_list]
 
-    with open(plugins_txt, 'r', encoding='windows-1252') as file:
+    with open(cfg.paths.plugins_txt, 'r', encoding='windows-1252') as file:
         enabled_plugins = [line.strip() for line in file if line.strip()]
 
 
-    current_load_order = sort_esp_list(enabled_plugins, folder)
+    current_load_order = sort_esp_list(enabled_plugins, cfg.paths.oblivion_folder)
 
 
 
@@ -278,7 +278,7 @@ try:
         return sorted(files, key=str.lower)
 
 
-    esps_in_data = sort_esp_list(get_plugin_files(folder), folder)
+    esps_in_data = sort_esp_list(get_plugin_files(cfg.paths.oblivion_folder), cfg.paths.oblivion_folder)
 
 
     app = PluginSelectorUI()
@@ -310,7 +310,7 @@ try:
     for plugin in load_order:
         parser = ESPParser()
         logging.info('Reading: ' + plugin)
-        parser.parse(os.path.join(folder, plugin))
+        parser.parse(os.path.join(cfg.paths.oblivion_folder, plugin))
         plugin_lo = parser.load_order
         master_map = {}
         try:
@@ -465,7 +465,7 @@ try:
         app = PluginSettingsUI()
         confirmed, worldspaces_to_generate = app.show_settings(cfg, ws_list)
         app.quit()
-        cfg.general.use_enginebugfixes_naming_scheme = detect_enginebugfixes_naming(cfg.general.use_enginebugfixes_naming_scheme, folder)
+        cfg.general.use_enginebugfixes_naming_scheme = detect_enginebugfixes_naming(cfg.general.use_enginebugfixes_naming_scheme, cfg.paths.oblivion_folder)
 
         if len(worldspaces_to_generate) == 0:
             logging.warning("No worldspaces selected for generation. Please select at least one.")
@@ -489,7 +489,7 @@ try:
 
             list_of_texture_files.append('textures\\landscape\\default.dds')
 
-            bsa_files = [f for f in os.listdir(folder) if f.endswith('.bsa')]
+            bsa_files = [f for f in os.listdir(cfg.paths.oblivion_folder) if f.endswith('.bsa')]
             bsa_loadorder = [] + cfg.hardcoded_bsas
 
 
@@ -499,11 +499,11 @@ try:
                         bsa_loadorder.append(file)
                         
             for bsa in bsa_loadorder:
-                if not os.path.exists(os.path.join(folder, bsa)):
+                if not os.path.exists(os.path.join(cfg.paths.oblivion_folder, bsa)):
                     continue
                 bsa_obj = BSAParser()
                 logging.info(f'Reading BSA: {bsa}')
-                bsa_obj.parse(os.path.join(folder, bsa))
+                bsa_obj.parse(os.path.join(cfg.paths.oblivion_folder, bsa))
                 list_to_extract = []
                 for file in bsa_obj.get_list_of_files():
                     if file.lower() in list_of_texture_files:
@@ -511,21 +511,21 @@ try:
 
                 if len(list_to_extract) > 0:
                     try:
-                        bsa_obj.extract(list_to_extract, os.path.join(folder, 'LandscapeLODTemp\\BSATextures'))
+                        bsa_obj.extract(list_to_extract, os.path.join(cfg.paths.oblivion_folder, 'LandscapeLODTemp\\BSATextures'))
                         #far_mesh_list += list_to_extract
                     except:
                         logging.error(f'Failed to extract LOD files from {bsa}')
 
 
             for tex in list_of_texture_files:
-                texture_path = os.path.join(folder, tex)
+                texture_path = os.path.join(cfg.paths.oblivion_folder, tex)
                 if not os.path.exists(texture_path):
-                    texture_path = os.path.join(folder, 'LandscapeLODTemp\\BSATextures', tex)
+                    texture_path = os.path.join(cfg.paths.oblivion_folder, 'LandscapeLODTemp\\BSATextures', tex)
                 if not os.path.exists(texture_path):
                     logging.error(f'Error: texture file {tex} not found')
-                    texture_path = os.path.join(folder, 'LandscapeLODTemp\\BSATextures', 'textures\\landscape\\default.dds')
+                    texture_path = os.path.join(cfg.paths.oblivion_folder, 'LandscapeLODTemp\\BSATextures', 'textures\\landscape\\default.dds')
                     if not os.path.exists(texture_path):
-                        texture_path = os.path.join(folder, 'textures\\landscape\\default.dds')
+                        texture_path = os.path.join(cfg.paths.oblivion_folder, 'textures\\landscape\\default.dds')
                     if not os.path.exists(texture_path):
                         logging.critical(f'Error: default texture not found at {texture_path}')
                         texture_path = os.path.join(TOOL_DIR, 'assets', 'default_landscape.dds')
@@ -773,7 +773,7 @@ try:
 
                 try:
                     logging.info(f'Saving texture {file_name}.dds...')
-                    SaveImageAsDXT1(temp_image, os.path.join(folder, r'textures\landscapelod\generated', file_name + '.dds'), level=cfg.texture.dds_encode_quality)
+                    SaveImageAsDXT1(temp_image, os.path.join(cfg.paths.output_folder, r'textures\landscapelod\generated', file_name + '.dds'), level=cfg.texture.dds_encode_quality)
 
                 except subprocess.CalledProcessError as e:
                     logging.error(f"SAVING TEXTURE FAILED {e.returncode}")
@@ -906,7 +906,7 @@ try:
                             ao_data = (None, None, None)
 
                         #print(ao_heightmap.shape, x_quad_coord, y_quad_coord)
-                        GenerateTextureMaps(texture_id_map, opacity_map, vertex_color_map, file_name, folder, ao_data)
+                        GenerateTextureMaps(texture_id_map, opacity_map, vertex_color_map, file_name, cfg.paths.output_folder, ao_data)
 
             PRECALCULATED_TRIANGLE_WEIGHTS, PRECALCULATED_TILING_DATA, worldspace_heightmap, texture_id_map = None, None, None, None 
             opacity_map, grid, grid_hashes, ao_heightmap = None, None, None, None  
@@ -1054,7 +1054,7 @@ try:
                             try:
                                 logging.info(f'Saving texture {file_name}.dds...')
                                 #temp_image = Image.fromarray(combined_normal_img.astype(np.uint8)).transpose(Image.FLIP_TOP_BOTTOM)
-                                SaveImageAsDXT1(combined_normal_img, os.path.join(folder, r'textures\landscapelod\generated', file_name + '.dds'), cfg.texture.dds_encode_quality)
+                                SaveImageAsDXT1(combined_normal_img, os.path.join(cfg.paths.output_folder, r'textures\landscapelod\generated', file_name + '.dds'), cfg.texture.dds_encode_quality)
 
                             except subprocess.CalledProcessError as e:
                                 logging.error(f"SAVING TEXTURE FAILED {e.returncode}")
@@ -1062,7 +1062,7 @@ try:
                                 logging.error(f"STDERR: {e.stderr}")
                         else:
 
-                            combined_normal_img.save(os.path.join(folder, r'textures\landscapelod\generated', file_name + '.dds'))
+                            combined_normal_img.save(os.path.join(cfg.paths.output_folder, r'textures\landscapelod\generated', file_name + '.dds'))
                                 
                         combined_normal_img = None
 
@@ -1162,7 +1162,7 @@ try:
                 UpdateCellBordersWrapper(mesh_data)
 
                 ###################NIF GENERATION#####################
-                GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, folder, form_id, TOOL_DIR, GetFilenameForFile)
+                GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, cfg.paths.output_folder, form_id, TOOL_DIR, GetFilenameForFile)
 
                 mesh_data = None
 
