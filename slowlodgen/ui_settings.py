@@ -228,7 +228,7 @@ class LODSettingsWindow(ctk.CTkToplevel):
                 "Higher = better sampling quality. Forced to be >= output resolution.")
 
         _, self.gauss_falloff = self._labeled_slider(
-            self.texture_options, "Texture Blending Falloff", 0.1, 20,
+            self.texture_options, "Texture Blending Falloff", 0.1, 10,
             cfg.texture.gauss_blending_falloff, decimals=1)
         ToolTip(self.gauss_falloff,
                 "Lower = smoother blending between adjacent local texture samples, but 'blurrier' resulting texture. " \
