@@ -65,7 +65,20 @@ from slowlodgen.config import *
 apply_pyffi_patches()
 
 if getattr(sys, 'frozen', False):
-    sys.stderr = open(os.path.join(TOOL_DIR, 'output.log'), 'a')
+    log_file = open(os.path.join(TOOL_DIR, 'output.log'), 'a')
+
+    class StderrRedirector:
+        def __init__(self, *streams):
+            self.streams = streams
+        def write(self, msg):
+            for s in self.streams:
+                s.write(msg)
+                s.flush()
+        def flush(self):
+            for s in self.streams:
+                s.flush()
+
+    sys.stderr = StderrRedirector(sys.__stderr__, log_file)
 
 class ElapsedFilter(logging.Filter):
     def filter(self, record):
