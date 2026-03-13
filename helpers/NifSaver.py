@@ -207,7 +207,7 @@ def get_height_at_xy(x, y, worldspace_heightmap, x_low, y_low):
 
 
 
-def GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, folder, form_id, tool_dir, filename_func):
+def GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, folder, form_id, tool_dir, filename_func, safe_routine=False):
     
     '''
     def get_border_segments(verts, border_mask, border_axis):
@@ -323,7 +323,10 @@ def GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, fold
                              f"(verts: {len(verts_2d)}, segments: {len(pairs)})")
                 try:
                     verts_before = len(verts_2d)
-                    tris = triangulate_safe(verts_2d, pairs, tool_dir, f'pYq{int(angle)}')
+                    if safe_routine:
+                        tris = triangulate_safe(verts_2d, pairs, tool_dir, f'pYq{int(angle)}')
+                    else:
+                        tris = triangle.triangulate({"vertices": verts_2d, "segments": pairs}, f'pYq{int(angle)}')
                     verts_after = len(tris['vertices'])
                     logging.info(f"Triangulation added {verts_after - verts_before} Steiner points, total number of verts: {(verts_after - verts_before) / verts_before:.1%}")
                 except RuntimeError as e:
@@ -339,8 +342,10 @@ def GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, fold
             
             if tris is None or len(tris['triangles']) >= 65500:
                 logging.info(f"Falling back to simple triangulation for {quad}")
-                tris = triangulate_safe(verts_2d, pairs, tool_dir, 'pY')
-
+                if safe_routine:
+                    tris = triangulate_safe(verts_2d, pairs, tool_dir, 'pY')
+                else:
+                    tris = triangle.triangulate({"vertices": verts_2d, "segments": pairs}, f'pYq{int(angle)}')
                                 
         
 

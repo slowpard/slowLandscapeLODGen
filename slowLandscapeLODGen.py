@@ -1175,8 +1175,8 @@ try:
                 UpdateCellBordersWrapper(mesh_data)
 
                 ###################NIF GENERATION#####################
-                GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, cfg.paths.output_folder, form_id, TOOL_DIR, GetFilenameForFile)
 
+                GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, cfg.paths.output_folder, form_id, TOOL_DIR, GetFilenameForFile, safe_routine=cfg.mesh.safe_nif_saver)
                 mesh_data = None
 
 

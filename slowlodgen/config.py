@@ -22,6 +22,7 @@ class MeshSettings:
     target_triangles: int = 62_000
     multithreaded: bool = True
     threads: int = 8
+    safe_nif_saver: bool = False
 
     @property
     def target_vertices(self) -> int:
