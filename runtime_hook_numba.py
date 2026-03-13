@@ -1,6 +1,6 @@
 import os
 import sys
-
+import multiprocessing
 
 def get_app_dir():
     if getattr(sys, 'frozen', False):
@@ -11,7 +11,13 @@ def get_app_dir():
     except NameError:
         #jupyter lol
         return os.path.abspath(os.getcwd())
-		
+    
+if sys.platform == 'win32':
+    import ctypes
+    ctypes.windll.kernel32.SetErrorMode(0x0002 | 0x0001 | 0x8000)
+
+
+multiprocessing.freeze_support()		
 		
 		
 TOOL_DIR = get_app_dir()		

@@ -23,12 +23,7 @@ import multiprocessing
 import numba
 from numba import njit, prange, types
 
-if sys.platform == 'win32':
-    import ctypes
-    ctypes.windll.kernel32.SetErrorMode(0x0002 | 0x0001 | 0x8000)
 
-
-multiprocessing.freeze_support()
 
 def get_app_dir():
     if getattr(sys, 'frozen', False):
