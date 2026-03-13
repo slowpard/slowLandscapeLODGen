@@ -412,6 +412,11 @@ def Vector3_get_y_value(self):
 def Vector3_set_y_value(self, value):
     self._y_value_._value = value
 
+def Vector3_get_z_value(self):
+    return self._z_value_._value    
+def Vector3_set_z_value(self, value):
+    self._z_value_._value = value
+
 def Float_fast_init(self, **kwargs):
     self._value = 0.0
 
@@ -489,6 +494,56 @@ def Triangle_fast_read(self, stream, data):
     self.v_2.read(stream, data)
     self.v_3.read(stream, data)
 
+
+_BULK_TYPES = {
+    pyffi.formats.nif.NifFormat.Vector3:  (12, '<fff', ('_x_value_', '_y_value_', '_z_value_')),
+    pyffi.formats.nif.NifFormat.Triangle: (6, '<HHH', ('_v_1_value_', '_v_2_value_', '_v_3_value_')),
+    pyffi.formats.nif.NifFormat.TexCoord: (8, '<ff', ('_u_value_', '_v_value_')),
+}
+
+
+_original_array_read = pyffi.object_models.xml.array.Array.read
+_original_array_write = pyffi.object_models.xml.array.Array.write
+
+def Array_fast_write(self, stream, data):
+    if (self._count2 is None
+            and self._elementType in _BULK_TYPES):
+
+        elem_size, fmt, attrs = _BULK_TYPES[self._elementType]
+        compiled = struct.Struct(fmt)
+
+        for elem in list.__iter__(self):
+            stream.write(compiled.pack(*(getattr(elem, a)._value for a in attrs)))
+    else:
+        _original_array_write(self, stream, data)
+
+
+_FIXED_SIZES = {
+    pyffi.formats.nif.NifFormat.Vector3: 12,
+    pyffi.formats.nif.NifFormat.Triangle: 6,
+    pyffi.formats.nif.NifFormat.TexCoord: 8,
+    pyffi.object_models.common.Float: 4, 
+    pyffi.object_models.common.Int: 4,
+    pyffi.object_models.common.UInt: 4,
+    pyffi.object_models.common.Short: 2,
+    pyffi.object_models.common.UShort: 2,
+    pyffi.object_models.common.Byte: 1,
+    pyffi.object_models.common.UByte: 1,
+    pyffi.object_models.common.Bool: 1
+}
+
+_filtered_attr_cache = {}
+
+_original_get_filtered_attribute_list = (
+    pyffi.object_models.xml.struct_.StructBase._get_filtered_attribute_list
+)
+
+
+_original_array_get_size = pyffi.object_models.xml.array.Array.get_size
+def Array_fast_get_size(self, data=None):
+    if (self._count2 is None and self._elementType in _FIXED_SIZES):
+        return list.__len__(self) * _FIXED_SIZES[self._elementType]
+    return _original_array_get_size(self, data)
 def apply_pyffi_patches():
 
     setattr(pyffi.formats.nif.NifFormat.TexCoord, 'v', property(TexCoord_get_v_value, TexCoord_set_v_value))
@@ -504,11 +559,13 @@ def apply_pyffi_patches():
     pyffi.object_models.common.UShort.__init__ = UShort_fast_init
     pyffi.object_models.common.Float.__init__ = Float_fast_init
     setattr(pyffi.formats.nif.NifFormat.Vector3, 'y', property(Vector3_get_y_value, Vector3_set_y_value))
+    setattr(pyffi.formats.nif.NifFormat.Vector3, 'x', property(Vector3_get_x_value, Vector3_set_x_value))
+    setattr(pyffi.formats.nif.NifFormat.Vector3, 'z', property(Vector3_get_z_value, Vector3_set_z_value))
     pyffi.formats.nif.NifFormat.Vector3.__init__ = Vector3_fast_init
     pyffi.formats.nif.NifFormat.Triangle.__init__ = Triangle_fast_init
     pyffi.formats.nif.NifFormat.TexCoord.__init__ = TexCoord_fast_init
     pyffi.formats.nif.NifFormat.Vector3.write = Vector3_fast_write
     pyffi.formats.nif.NifFormat.Triangle.write = Triangle_fast_write
     pyffi.formats.nif.NifFormat.TexCoord.write = TexCoord_fast_write 
-    setattr(pyffi.formats.nif.NifFormat.Vector3, 'x', property(Vector3_get_x_value, Vector3_set_x_value))
-
+    pyffi.object_models.xml.array.Array.write = Array_fast_write
+    pyffi.object_models.xml.array.Array.get_size = Array_fast_get_size
