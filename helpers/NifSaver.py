@@ -9,6 +9,8 @@ import triangle
 from numba import njit
 import subprocess, sys
 import multiprocessing
+import tempfile
+import re
 
 def _triangle_worker(in_path, out_path, flags, stderr_path):
     if sys.platform == 'win32':
@@ -25,16 +27,20 @@ def _triangle_worker(in_path, out_path, flags, stderr_path):
         np.savez(out_path, vertices=result["vertices"], triangles=result["triangles"])
 
 
-def triangulate_safe(vertices_2d, segments, temp_dir, flags='pY', timeout=15):
-    in_path = os.path.join(temp_dir, 'tri_input.npz')
-    out_path = os.path.join(temp_dir, 'tri_output.npz')
-    err_path = os.path.join(temp_dir, 'tri_stderr.txt')
+def triangulate_safe(vertices_2d, segments, temp_dir, flags='pY', timeout=15, name='tri'):
+    #unique file names per call so concurrent runs don't clobber each other's files
+    #mkstemp reserves the input file, output/stderr names are derived from it
+    temp_root = os.path.join(temp_dir, 'tri_temp')
+    os.makedirs(temp_root, exist_ok=True)
+    safe_name = re.sub(r'[\\/:*?"<>|\s]+', '_', name)[:60] #EBF names contain plugin\worldspace
+    fd, in_path = tempfile.mkstemp(prefix=f'{safe_name}_', suffix='_input.npz', dir=temp_root)
+    os.close(fd)
+    base = in_path[:-len('_input.npz')]
+    out_path = base + '_output.npz'
+    err_path = base + '_stderr.txt'
     normalized_verts = vertices_2d / 131072.0 #scale
-    
+
     try:
-        for p in (in_path, out_path, err_path):
-            if os.path.exists(p):
-                os.remove(p)
         np.savez(in_path, vertices=normalized_verts, segments=segments)
         proc = multiprocessing.Process(
             target=_triangle_worker,
@@ -61,8 +67,10 @@ def triangulate_safe(vertices_2d, segments, temp_dir, flags='pY', timeout=15):
         return out
     finally:
         for p in (in_path, out_path, err_path):
-            if os.path.exists(p):
+            try:
                 os.remove(p)
+            except OSError:
+                pass
 
 
 def SaveGeometryIntoNif(final_verts, final_triangles, quad, folder, file_name, vertex_valid):         
@@ -325,7 +333,7 @@ def GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, fold
                 try:
                     verts_before = len(verts_2d)
                     if safe_routine:
-                        tris = triangulate_safe(verts_2d, pairs, tool_dir, f'pYq{int(angle)}')
+                        tris = triangulate_safe(verts_2d, pairs, tool_dir, f'pYq{int(angle)}', name=file_name)
                     else:
                         tris = triangle.triangulate({"vertices": verts_2d, "segments": pairs}, f'pYq{int(angle)}')
                     verts_after = len(tris['vertices'])
@@ -344,7 +352,7 @@ def GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, fold
             if tris is None or len(tris['triangles']) >= 65500:
                 logging.info(f"Falling back to simple triangulation for {quad}")
                 if safe_routine:
-                    tris = triangulate_safe(verts_2d, pairs, tool_dir, 'pY')
+                    tris = triangulate_safe(verts_2d, pairs, tool_dir, 'pY', name=file_name)
                 else:
                     tris = triangle.triangulate({"vertices": verts_2d, "segments": pairs}, 'pY')
 
