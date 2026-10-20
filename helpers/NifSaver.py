@@ -345,9 +345,14 @@ def GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, fold
                 if safe_routine:
                     tris = triangulate_safe(verts_2d, pairs, tool_dir, 'pY')
                 else:
-                    tris = triangle.triangulate({"vertices": verts_2d, "segments": pairs}, f'pYq{int(angle)}')
-                                
-        
+                    tris = triangle.triangulate({"vertices": verts_2d, "segments": pairs}, 'pY')
+
+            #NiTriShapeData stores counts and indices as ushort
+            if len(tris['triangles']) > 65535 or len(tris['vertices']) > 65535:
+                logging.error(f"Skipping {worldspace} {quad}: {len(tris['triangles'])} tris / {len(tris['vertices'])} verts "
+                              f"exceed the NIF limit of 65535 even without refinement (decimated verts: {len(verts_2d)})")
+                continue
+
 
             len_verts = len(mesh_data[x_quad][y_quad][0])
             len_verts_post_tri = len(tris['vertices'])
