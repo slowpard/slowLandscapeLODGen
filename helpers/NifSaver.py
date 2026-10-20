@@ -17,6 +17,7 @@ def _triangle_worker(in_path, out_path, flags, stderr_path):
     
     with open(stderr_path, "w") as f:
         os.dup2(f.fileno(), sys.stderr.fileno())
+        os.dup2(f.fileno(), sys.stdout.fileno()) #Triangle prints its errors to stdout
         data = np.load(in_path)
         verts = data["vertices"].astype(np.float64).copy()
         segs = data["segments"].astype(np.int32).copy()
