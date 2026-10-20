@@ -7,3 +7,8 @@ output.log
 analyze_crash_geometry.py
 diagnose_triangle.py
 slowlandscapelodgen.py.lprof
+*.ipynb
+nif_generation_stats.prof
+nif_generation_stats2.prof
+nif_generation_stats3.prof
+nif_generation_stats4.prof
