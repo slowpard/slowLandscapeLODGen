@@ -774,7 +774,30 @@ def UpdateCellBordersWrapper(mesh_data):
                             None,
                             np.concatenate((q2_border, np.full(len(q2_addins), True, dtype=bool)))
                         )
-     
+
+    #quad corners are shared by up to 4 quads, pairwise matching above leaves them inconsistent
+    #(later pairs overwrite earlier ones, diagonal neighbours are never paired) -> average all copies at once
+    corners = {}
+    for x_quad in mesh_data:
+        for y_quad in mesh_data[x_quad]:
+            verts = mesh_data[x_quad][y_quad][0]
+            for cx in range(2):
+                for cy in range(2):
+                    idx = np.where((np.abs(verts[:, 0] - cx * 131072.0) < 0.001) &
+                                   (np.abs(verts[:, 1] - cy * 131072.0) < 0.001))[0]
+                    if len(idx) > 0:
+                        key = (x_quad + cx, y_quad + cy)
+                        if key not in corners:
+                            corners[key] = []
+                        corners[key].append((verts, idx))
+
+    for copies in corners.values():
+        if len(copies) < 2:
+            continue
+        avg_z = np.mean(np.concatenate([verts[idx, 2] for verts, idx in copies]))
+        for verts, idx in copies:
+            verts[idx, 2] = avg_z
+
 
 def UpdateCellBorders(q1, q2, border_c_axis, other_axis, merging_sensitivity=50, snap_sensitivity=10):
     border_coord = (131072.0, 0.0)
