@@ -11,6 +11,7 @@ import subprocess, sys
 import multiprocessing
 import tempfile
 import re
+from scipy.spatial import cKDTree
 
 def _triangle_worker(in_path, out_path, flags, stderr_path):
     if sys.platform == 'win32':
@@ -215,6 +216,63 @@ def get_height_at_xy(x, y, worldspace_heightmap, x_low, y_low):
     return z
 
 
+def merge_close_vertices(verts, border, tol=1.0):
+    #drops one vertex of each pair closer than tol, keeping cell corners over cell-line vertices over the rest
+    #the quad's outer border is never touched, it is matched with the neighbouring quads
+    close_pairs = cKDTree(verts[:, :2]).query_pairs(tol, output_type='ndarray')
+    if len(close_pairs) == 0:
+        return verts, border, 0
+    on_grid = np.abs(verts[:, :2] - np.round(verts[:, :2] / 4096.0) * 4096.0) < 0.001
+    priority = border.astype(int) + (on_grid[:, 0] & on_grid[:, 1])
+    outer = ((verts[:, :2] < 0.001) | (verts[:, :2] > 131072.0 - 0.001)).any(axis=1)
+    keep = np.full(len(verts), True, dtype=bool)
+    for i, j in close_pairs:
+        if not (keep[i] and keep[j]) or (outer[i] and outer[j]):
+            continue
+        keep[j if (outer[i], priority[i]) >= (outer[j], priority[j]) else i] = False
+    return verts[keep], border[keep], int((~keep).sum())
+
+
+def validate_triangle_input(verts_2d, pairs, tol=1.0):
+    #cheap sanity checks of the PSLG, Triangle tends to crash on such input instead of reporting it
+    issues = []
+    if not np.isfinite(verts_2d).all():
+        issues.append("non-finite vertex coordinates")
+    close_pairs = cKDTree(verts_2d).query_pairs(tol)
+    if close_pairs:
+        issues.append(f"{len(close_pairs)} vertex pairs closer than {tol}u")
+
+    a = verts_2d[pairs[:, 0]]
+    b = verts_2d[pairs[:, 1]]
+    seg_len = np.linalg.norm(a - b, axis=1)
+    if (seg_len < tol).any():
+        issues.append(f"{int((seg_len < tol).sum())} segments shorter than {tol}u")
+    if len(np.unique(np.sort(pairs, axis=1), axis=0)) < len(pairs):
+        issues.append("duplicate segments")
+
+    #segments run along cell lines: no vertex may lie on a segment it doesn't end (also catches overlapping segments)
+    inside = 0
+    for axis in [0, 1]:
+        other = 1 - axis
+        grid_line = np.round(a[:, axis] / 4096.0) * 4096.0
+        on_line = (np.abs(a[:, axis] - grid_line) < tol) & (np.abs(b[:, axis] - grid_line) < tol)
+        for line in np.unique(grid_line[on_line]):
+            seg = on_line & (grid_line == line)
+            lo = np.minimum(a[seg, other], b[seg, other])
+            hi = np.maximum(a[seg, other], b[seg, other])
+            line_verts = np.sort(verts_2d[np.abs(verts_2d[:, axis] - line) < tol, other])
+            inside += int((np.searchsorted(line_verts, hi, 'left') - np.searchsorted(line_verts, lo, 'right')).sum())
+    if inside:
+        issues.append(f"{inside} vertices on segments they don't end")
+
+    #quad border must be fully covered, otherwise the seam to the neighbouring quad breaks
+    for axis, line in [(0, 0.0), (0, 131072.0), (1, 0.0), (1, 131072.0)]:
+        side = (np.abs(a[:, axis] - line) < tol) & (np.abs(b[:, axis] - line) < tol)
+        if abs(seg_len[side].sum() - 131072.0) > tol:
+            issues.append(f"quad border {'xy'[axis]}={line:.0f} not covered by segments")
+
+    return issues
+
 
 def GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, folder, form_id, tool_dir, filename_func, safe_routine=False):
     
@@ -242,6 +300,12 @@ def GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, fold
             file_name = filename_func(form_id, worldspace, quad)
             logging.info(f"Saving {worldspace} {quad}: {file_name}.nif...")
             pairs = []
+
+            #near-duplicate vertices produce tiny segments that Triangle may crash on
+            merged_verts, merged_border, n_merged = merge_close_vertices(mesh_data[x_quad][y_quad][0], mesh_data[x_quad][y_quad][2])
+            if n_merged:
+                logging.warning(f"Merged {n_merged} vertices closer than 1u in {worldspace} {quad}")
+                mesh_data[x_quad][y_quad] = (merged_verts, None, merged_border)
 
             rounded_ar = np.rint(mesh_data[x_quad][y_quad][0][:, :2]).astype(int)
             border = mesh_data[x_quad][y_quad][2]
@@ -312,6 +376,8 @@ def GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, fold
             '''
 
             pairs = np.array(pairs)
+            _, first_index = np.unique(np.sort(pairs, axis=1), axis=0, return_index=True)
+            pairs = pairs[np.sort(first_index)] #drop duplicate segments, keep the original order
             
 
             '''
@@ -323,16 +389,27 @@ def GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, fold
                     print(border_segs)
                     pairs = np.concatenate([pairs, np.array(border_segs)], axis=0) if len(pairs) > 0 else np.array(border_segs)'''
 
-            
+            #suspicious input goes through the crash-safe routine and is saved for diagnose_triangle.py
+            use_safe_routine = safe_routine
+            issues = validate_triangle_input(verts_2d, pairs)
+            if issues:
+                dump_dir = os.path.join(tool_dir, 'diagnostic_output')
+                os.makedirs(dump_dir, exist_ok=True)
+                dump_path = os.path.join(dump_dir, re.sub(r'[\\/:*?"<>|\s]+', '_', file_name) + '.npz')
+                np.savez(dump_path, vertices=verts_2d / 131072.0, segments=pairs)
+                logging.warning(f"Suspicious triangulation input for {worldspace} {quad}: {'; '.join(issues)}. "
+                                f"Using the safe triangulation routine, input saved to {dump_path}")
+                use_safe_routine = True
+
             angle = 10
             tris = None
-            
+
             while angle > 2:
                 logging.info(f"Triangulating {worldspace} {quad} with max. angle {int(angle)}... "
                              f"(verts: {len(verts_2d)}, segments: {len(pairs)})")
                 try:
                     verts_before = len(verts_2d)
-                    if safe_routine:
+                    if use_safe_routine:
                         tris = triangulate_safe(verts_2d, pairs, tool_dir, f'pYq{int(angle)}', name=file_name)
                     else:
                         tris = triangle.triangulate({"vertices": verts_2d, "segments": pairs}, f'pYq{int(angle)}')
@@ -351,7 +428,7 @@ def GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, fold
             
             if tris is None or len(tris['triangles']) >= 65500:
                 logging.info(f"Falling back to simple triangulation for {quad}")
-                if safe_routine:
+                if use_safe_routine:
                     tris = triangulate_safe(verts_2d, pairs, tool_dir, 'pY', name=file_name)
                 else:
                     tris = triangle.triangulate({"vertices": verts_2d, "segments": pairs}, 'pY')
