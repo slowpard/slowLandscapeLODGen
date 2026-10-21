@@ -1120,9 +1120,25 @@ try:
                         worldspace_heightmap[32*(y - y_low):32*(y-y_low)+32 + 1, 32*(x - x_low):32*(x - x_low)+32 + 1] = height_map_cell
 
                 #########################MESH GEOMETRY CALCULATION####################
+                quads = []
+                for x_quad in quad_data[worldspace]:
+                    if x_quad not in mesh_data: mesh_data[x_quad] = {}
+                    for y_quad in quad_data[worldspace][x_quad]:
+                        quad = (x_quad, y_quad)
+                        logging.info(f'Processing worldspace {worldspace} quad {quad}...')
+                        quads.append(quad)
+
+                results = GenerateLODMeshDataThreaded(worldspace_heightmap, quads, x_low, y_low, cfg.mesh.threads,
+                                                      target_verts=cfg.mesh.target_vertices, min_error=cfg.mesh.mesh_min_error,
+                                                      vertices_batch=cfg.mesh.vertices_batch, max_error_resort_skip=cfg.mesh.max_error_resort_skip)
+                for quad, result in zip(quads, results):
+                    mesh_data[quad[0]][quad[1]] = result
+
+                #batched version with the parallel=True wrapper
+                '''
                 counter = 0
                 quads = np.full((cfg.mesh.threads, 2), -1, dtype=np.int32)
-                
+
                 for x_quad in quad_data[worldspace]:
                     if x_quad not in mesh_data: mesh_data[x_quad] = {}
                     for y_quad in quad_data[worldspace][x_quad]:
@@ -1166,6 +1182,7 @@ try:
                                                             vertices_batch=cfg.mesh.vertices_batch, max_error_resort_skip=cfg.mesh.max_error_resort_skip)
                     for thread in range(counter):
                         mesh_data[quads[thread, 0]][quads[thread, 1]] = results[thread]
+                '''
 
                 ##############BORDER MATCHING##########################
                 UpdateCellBordersWrapper(mesh_data)

@@ -3,6 +3,7 @@ import numpy as np
 from numba import prange, njit, types
 from numba.typed import Dict
 from numba.typed import List
+from concurrent.futures import ThreadPoolExecutor
 
 
 ''''GEOMETRY FUNCTIONS'''
@@ -1095,7 +1096,7 @@ def UpdateCellBorders(q1, q2, border_c_axis, other_axis, merging_sensitivity=50,
     return q1, q2, q1_addins, q2_addins, q1_remove, q2_remove
 
 
-@njit(cache=True)
+@njit(cache=True, nogil=True) #nogil: releases the GIL so GenerateLODMeshDataThreaded's python threads run in parallel
 def GenerateLODMeshData(height_map, target_verts, min_error, vertices_batch, max_error_resort_skip):
     #logging.info('Generating LOD mesh...')
     #print(height_map.shape)
@@ -1165,6 +1166,21 @@ def GenerateLODMeshData(height_map, target_verts, min_error, vertices_batch, max
 
 
     
+def GenerateLODMeshDataThreaded(worldspace_heightmap, quads, x_low, y_low, threads, target_verts, min_error, vertices_batch, max_error_resort_skip):
+    #replaces the batched GenerateLODMeshDataWrapper: each thread takes the next quad as soon as it is free
+    #(no waiting for the slowest quad of a batch) and there is no parallel=True wrapper to compile
+    #returns results in the order of quads
+    def generate_quad(quad):
+        #same slicing as GenerateLODMeshDataWrapper
+        x_pos = (quad[0] * 32 - x_low - 1) * 32
+        y_pos = (quad[1] * 32 - y_low - 1) * 32
+        height_map = worldspace_heightmap[y_pos:y_pos + 34 * 32 + 1, x_pos:x_pos + 34 * 32 + 1]
+        return GenerateLODMeshData(height_map, target_verts, min_error, vertices_batch, max_error_resort_skip)
+
+    with ThreadPoolExecutor(max_workers=threads) as executor:
+        return list(executor.map(generate_quad, quads)) #re-raises any exception from a quad
+
+
 @njit(parallel=True, cache=True)
 def GenerateLODMeshDataWrapper(worldspace_heightmap, quads, x_low, y_low, counter, target_verts, min_error, vertices_batch, max_error_resort_skip):
 
