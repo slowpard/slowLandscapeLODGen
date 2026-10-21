@@ -37,7 +37,7 @@ a = Analysis(
     noarchive=False,
 )
 
-a.datas = [d for d in a.datas if '_tcl_data/msgs' not in d[0] and '_tcl_data/tzdata' not in d[0]]
+a.datas = [d for d in a.datas if not any(p in d[0].replace('\\', '/') for p in ('_tcl_data/msgs', '_tcl_data/tzdata', '_tk_data/msgs'))]
 
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)

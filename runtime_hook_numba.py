@@ -68,7 +68,6 @@ def patched_load_font(cls, font_path, *args, **kwargs):
         os.makedirs(temp_font_dir, exist_ok=True)
         dest = os.path.join(temp_font_dir, os.path.basename(font_path))
         shutil.copy2(font_path, dest)
-        print(font_path)
         result = original_load.__func__(cls, dest, *args, **kwargs)	
         return result
     return original_load.__func__(cls, font_path, *args, **kwargs)
