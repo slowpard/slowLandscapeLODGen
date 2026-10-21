@@ -364,7 +364,132 @@ def solve_optimal_yz(x, q1, q2, w1, w2, v0, v1):
 
 @njit(fastmath=True, cache=True)
 def edge_cost_evaluation(v0, v1, q1, q2, w1, w2, v0_is_boundary, v1_is_boundary, v0_h, v1_h, v0_v, v1_v):
-    
+    #collapse of edge (v0, v1), v = (x, y, z, 1):
+    #  placement v* = argmin v^T (w1*q1 + w2*q2) v, cell corners/lines keep their x and/or y fixed
+    #  (both interior: solve the 3x3 grad = 0, otherwise solve only for the free coordinates)
+    #  fallback v* = (w1*v0 + w2*v1) / (w1 + w2) if singular or outside the edge's bbox
+    #  forbidden collapse (spans a cell, corner-corner, h-line with v-line vertex): midpoint, cost 1e100
+    #  cost = v*^T (q1 + q2) v*, callers scale it by (w1 + w2) / 2
+    #same logic as edge_cost_evaluation_legacy with scalars instead of small arrays (no allocations in the hot loop)
+    #returns cost, optimum x, y, z; ox, oy, oz = legacy optimum[0], optimum[1], optimum[2]
+    #with fastmath=False both versions give bit-identical results
+
+    a1 = w1 / (w1 + w2) #legacy: w1 / (w1 + w2) in the midpoint expression
+    a2 = w2 / (w1 + w2) #legacy: w2 / (w1 + w2) in the midpoint expression
+    high_cost_flag = False
+    ox, oy, oz = 0.0, 0.0, 0.0 #legacy: optimum = np.zeros(3, dtype=np.float64)
+    if abs(v0[0] - v1[0]) > 4095.9999 or abs(v0[1] - v1[1]) > 4095.9999:
+        high_cost_flag = True
+        #legacy: optimum = (w1 / (w1 + w2) * v0 + w2 / (w1 + w2) * v1), same for all midpoint lines below
+        ox, oy, oz = a1 * v0[0] + a2 * v1[0], a1 * v0[1] + a2 * v1[1], a1 * v0[2] + a2 * v1[2]
+    elif v0_h:
+        if v0_v:
+            if v1_h and v1_v:
+                high_cost_flag = True
+                ox, oy, oz = a1 * v0[0] + a2 * v1[0], a1 * v0[1] + a2 * v1[1], a1 * v0[2] + a2 * v1[2]
+            else:
+                ox, oy = v0[0], v0[1] #legacy: optimum = v0.copy()
+                oz = solve_optimal_z(v0[0], v0[1], q1, q2, w1, w2, v0[2], v1[2]) #legacy: optimum[2] = solve_optimal_z(...)
+        else:
+            if v1_h and v1_v:
+                ox, oy = v1[0], v1[1] #legacy: optimum = v1.copy()
+                oz = solve_optimal_z(v1[0], v1[1], q1, q2, w1, w2, v0[2], v1[2])
+            elif v1_v:
+                high_cost_flag = True
+                ox, oy, oz = a1 * v0[0] + a2 * v1[0], a1 * v0[1] + a2 * v1[1], a1 * v0[2] + a2 * v1[2]
+            elif v1_h:
+                oy = v0[1] #legacy: grid_y = v0[1]; optimum[1] = grid_y
+                ox, oz = solve_optimal_xz(oy, q1, q2, w1, w2, v0, v1) #legacy: mid_x, opt_z = ...; optimum[0], optimum[2] = mid_x, opt_z
+            else:
+                ox, oy = v0[0], v0[1] #legacy: optimum = v0.copy()
+                oz = solve_optimal_z(v0[0], v0[1], q1, q2, w1, w2, v0[2], v1[2])
+
+    elif v0_v:
+        if v1_h and v1_v:
+            ox, oy = v1[0], v1[1] #legacy: optimum = v1.copy()
+            oz = solve_optimal_z(v1[0], v1[1], q1, q2, w1, w2, v0[2], v1[2])
+        elif v1_h:
+            high_cost_flag = True
+            ox, oy, oz = a1 * v0[0] + a2 * v1[0], a1 * v0[1] + a2 * v1[1], a1 * v0[2] + a2 * v1[2]
+        elif v1_v:
+            ox = v0[0] #legacy: grid_x = v0[0]; optimum[0] = grid_x
+            oy, oz = solve_optimal_yz(ox, q1, q2, w1, w2, v0, v1) #legacy: mid_y, opt_z = ...; optimum[1], optimum[2] = mid_y, opt_z
+        else:
+            ox, oy = v0[0], v0[1] #legacy: optimum = v0.copy()
+            oz = solve_optimal_z(v0[0], v0[1], q1, q2, w1, w2, v0[2], v1[2])
+    elif v1_h or v1_v:
+        ox, oy = v1[0], v1[1] #legacy: optimum = v1.copy()
+        oz = solve_optimal_z(v1[0], v1[1], q1, q2, w1, w2, v0[2], v1[2])
+
+    else:
+
+        #this solves dE/dx = dE/dy = dE/dz = 0 (Q_bar = w1 * q1 + w2 * q2, rows 0..2)
+        #legacy: Q_bar[i, j] = w1 * q1[i, j] + w2 * q2[i, j] -> bij; row 3 of Q_bar was never used
+        b00 = w1 * q1[0, 0] + w2 * q2[0, 0]
+        b01 = w1 * q1[0, 1] + w2 * q2[0, 1]
+        b02 = w1 * q1[0, 2] + w2 * q2[0, 2]
+        b03 = w1 * q1[0, 3] + w2 * q2[0, 3]
+        b10 = w1 * q1[1, 0] + w2 * q2[1, 0]
+        b11 = w1 * q1[1, 1] + w2 * q2[1, 1]
+        b12 = w1 * q1[1, 2] + w2 * q2[1, 2]
+        b13 = w1 * q1[1, 3] + w2 * q2[1, 3]
+        b20 = w1 * q1[2, 0] + w2 * q2[2, 0]
+        b21 = w1 * q1[2, 1] + w2 * q2[2, 1]
+        b22 = w1 * q1[2, 2] + w2 * q2[2, 2]
+        b23 = w1 * q1[2, 3] + w2 * q2[2, 3]
+
+        #legacy: det_val = Q_bar[0, 0] * (Q_bar[1, 1] * Q_bar[2, 2] - ...), same formula
+        det_val = b00 * (b11 * b22 - b12 * b21) - \
+                  b01 * (b10 * b22 - b12 * b20) + \
+                  b02 * (b10 * b21 - b11 * b20)
+
+        if det_val < np.float64(1e-6):
+            ox, oy, oz = a1 * v0[0] + a2 * v1[0], a1 * v0[1] + a2 * v1[1], a1 * v0[2] + a2 * v1[2]
+        else:
+            #legacy: Q_bar_inv = inverse_3x3(Q_bar, det_val), inlined with the same formulas: ij = inv[i, j]
+            inv_det = 1 / det_val
+            i00 = (b11 * b22 - b12 * b21) * inv_det
+            i01 = (b02 * b21 - b01 * b22) * inv_det
+            i02 = (b01 * b12 - b02 * b11) * inv_det
+            i10 = (b12 * b20 - b10 * b22) * inv_det
+            i11 = (b00 * b22 - b02 * b20) * inv_det
+            i12 = (b02 * b10 - b00 * b12) * inv_det
+            i20 = (b10 * b21 - b11 * b20) * inv_det
+            i21 = (b01 * b20 - b00 * b21) * inv_det
+            i22 = (b00 * b11 - b01 * b10) * inv_det
+            #legacy: optimum = np.array(((-Q_bar_inv[0,0] * Q_bar[0, 3] - Q_bar_inv[0,1] * Q_bar[1, 3] - Q_bar_inv[0,2] * Q_bar[2, 3]), ...))
+            ox = -i00 * b03 - i01 * b13 - i02 * b23
+            oy = -i10 * b03 - i11 * b13 - i12 * b23
+            oz = -i20 * b03 - i21 * b13 - i22 * b23
+
+            optimum = (ox, oy, oz) #tuple only for the indexed check below
+            for i in range(3): # Avoiding bonkers z values (numerical instability? idk wtf happens)
+                lower = v0[i] if v0[i] < v1[i] else v1[i]
+                upper = v0[i] if v0[i] > v1[i] else v1[i]
+                if optimum[i] < lower or optimum[i] > upper:
+                    #legacy: for j in range(3): optimum[j] = (w1  * v0[j] + w2  * v1[j]) / (w1 + w2)
+                    ox = (w1 * v0[0] + w2 * v1[0]) / (w1 + w2)
+                    oy = (w1 * v0[1] + w2 * v1[1]) / (w1 + w2)
+                    oz = (w1 * v0[2] + w2 * v1[2]) / (w1 + w2)
+                    break
+
+    if high_cost_flag:
+        cost = np.float64(1e+100)
+    else:
+        cost = np.float64(0.0)
+        #legacy: Q_u[i, j] = q1[i, j] + q2[i, j], each Q_u[i, j] below is spelled out as (q1[i, j] + q2[i, j]), same sums in the same order
+        cost += (q1[0, 0] + q2[0, 0]) * ox * ox + (q1[1, 1] + q2[1, 1]) * oy * oy + (q1[2, 2] + q2[2, 2]) * oz * oz
+        cost += 2.0 * ((q1[0, 1] + q2[0, 1]) * ox * oy + (q1[0, 2] + q2[0, 2]) * ox * oz + (q1[1, 2] + q2[1, 2]) * oy * oz)
+        cost += 2.0 * ((q1[0, 3] + q2[0, 3]) * ox + (q1[1, 3] + q2[1, 3]) * oy + (q1[2, 3] + q2[2, 3]) * oz)
+        cost += q1[3, 3] + q2[3, 3]
+
+    return cost, ox, oy, oz
+
+
+#original array-based version, kept for reference (not called)
+@njit(fastmath=True, cache=True)
+def edge_cost_evaluation_legacy(v0, v1, q1, q2, w1, w2, v0_is_boundary, v1_is_boundary, v0_h, v1_h, v0_v, v1_v):
+
     #det_val2 = np.linalg.det(Q_bar[:3, :3])
 
     #print(det_val, det_val2)
@@ -506,7 +631,7 @@ def calculate_edge_cost(vertices_array, edges_array, vertice_quadrics_array, wei
         v1_h = horizontal_border[edge[1]]
         v0_v = vertical_border[edge[0]]
         v1_v = vertical_border[edge[1]]
-        cost[i], optimum[i] = edge_cost_evaluation(v0, v1, q1, q2, w1, w2, v0_is_boundary, v1_is_boundary, v0_h, v1_h, v0_v, v1_v)
+        cost[i], optimum[i, 0], optimum[i, 1], optimum[i, 2] = edge_cost_evaluation(v0, v1, q1, q2, w1, w2, v0_is_boundary, v1_is_boundary, v0_h, v1_h, v0_v, v1_v)
         cost[i] = cost[i] * (w1 + w2) / 2
 
     return cost, optimum
@@ -560,6 +685,8 @@ def simplify_mesh(vertices_array, triangles_array, edges_array,
     max_edges_per_vert = 6
     connected_edges = np.full((num_vertices, max_edges_per_vert), -1, np.int32)
     chained_edges = np.full((num_vertices), -1, np.int32)
+    #replaces a set() per collapse: neighbour seen in this collapse <=> its mark equals current_vertex (unique per collapse)
+    neighbour_mark = np.full(num_vertices, -1, np.int64)
 
     for i in range(num_edges):
         for v in range(2):
@@ -612,8 +739,11 @@ def simplify_mesh(vertices_array, triangles_array, edges_array,
         
         current_vertex -= 1
         
-        vertex_quadrics_array[v0] = (weights_array[v0] * vertex_quadrics_array[v0] + weights_array[v1] * vertex_quadrics_array[v1] ) / (weights_array[v0] + weights_array[v1])
-        
+        #vertex_quadrics_array[v0] = (weights_array[v0] * vertex_quadrics_array[v0] + weights_array[v1] * vertex_quadrics_array[v1] ) / (weights_array[v0] + weights_array[v1])
+        for j in range(4): #same, in place without temporary arrays
+            for k in range(4):
+                vertex_quadrics_array[v0, j, k] = (weights_array[v0] * vertex_quadrics_array[v0, j, k] + weights_array[v1] * vertex_quadrics_array[v1, j, k]) / (weights_array[v0] + weights_array[v1])
+
         #yep, that's the original intention of the method author
         #the idea is to combine the errors of both verts
         weights_array[v0] = (weights_array[v0] + weights_array[v1]) 
@@ -648,8 +778,8 @@ def simplify_mesh(vertices_array, triangles_array, edges_array,
         pointer = 0
         i_vertex = v0
 
-        verts = set()
-        
+        #verts = set()
+
         while edges_loop:
 
             if pointer >= max_edges_per_vert:
@@ -689,22 +819,24 @@ def simplify_mesh(vertices_array, triangles_array, edges_array,
             else:
                 v_other = ev1
             
-            if not v_other in verts:
-                verts.add(v_other)
+            #if not v_other in verts:
+            #    verts.add(v_other)
+            if neighbour_mark[v_other] != current_vertex:
+                neighbour_mark[v_other] = current_vertex
             else:
                 edge_valid[edge_idx] = False
                 continue
 
     
 
-            updated_cost, updated_optimum = edge_cost_evaluation(vertices_array[ev0], vertices_array[ev1], vertex_quadrics_array[ev0], 
-                                                                 vertex_quadrics_array[ev1], weights_array[ev0], weights_array[ev1], 
-                                                                 False, False, horizontal_border[ev0], horizontal_border[ev1],  
-                                                                 vertical_border[ev0], vertical_border[ev1]) 
+            updated_cost, opt_x, opt_y, opt_z = edge_cost_evaluation(vertices_array[ev0], vertices_array[ev1], vertex_quadrics_array[ev0],
+                                                                 vertex_quadrics_array[ev1], weights_array[ev0], weights_array[ev1],
+                                                                 False, False, horizontal_border[ev0], horizontal_border[ev1],
+                                                                 vertical_border[ev0], vertical_border[ev1])
             edge_cost[edge_idx] = updated_cost * (weights_array[ev0] + weights_array[ev1]) / 2
-            edges_collapse[edge_idx][0] = updated_optimum[0]
-            edges_collapse[edge_idx][1] = updated_optimum[1]
-            edges_collapse[edge_idx][2] = updated_optimum[2]
+            edges_collapse[edge_idx, 0] = opt_x
+            edges_collapse[edge_idx, 1] = opt_y
+            edges_collapse[edge_idx, 2] = opt_z
             
            
     #print("FINISHED", sum(vertex_valid), current_vertex, "cost: ", edge_cost[edge_idx])
