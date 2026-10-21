@@ -966,7 +966,8 @@ try:
                         worldspace_heightmap[32*(y - y_low):32*(y-y_low)+32 + 1, 32*(x - x_low):32*(x - x_low)+32 + 1] = height_map_cell
 
 
-                westslope, eastslope, northslope = compute_directional_slopes(worldspace_heightmap, 1, 1024)
+                if cfg.normal_map.shadows_enabled: #slopes are only used for shadows
+                    westslope, eastslope, northslope = compute_directional_slopes(worldspace_heightmap, 1, 1024)
                 
 
                 for x_quad in quad_data[worldspace]:
