@@ -1056,7 +1056,7 @@ try:
                         normal_map, vertex_normals, height_map, verts, tris, face_normals = None, None, None, None, None, None
 
                         if cfg.normal_map.texture_dimension != cfg.normal_map.internal_dimension:
-                            temp_image = temp_image.resize((cfg.normal_map.texture_dimension, cfg.normal_map.texture_dimension), resample=Image.BILINEAR)
+                            combined_normal_img = combined_normal_img.resize((cfg.normal_map.texture_dimension, cfg.normal_map.texture_dimension), resample=Image.BILINEAR)
 
                         if cfg.normal_map.compression:
 
