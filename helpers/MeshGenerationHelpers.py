@@ -121,7 +121,11 @@ def generate_vert_quadratics(vertices, triangles):
         #vert_quadrics[triangles[i,1]] += quadric
         #vert_quadrics[triangles[i,2]] += quadric
 
-        #same math as compute_plane_quadric with scalars, numpy calls on 3-vectors allocate an array each
+        #same math as compute_plane_quadric() rewritten with scalars for performance
+        #calculating a 4x4 matrix that can be used to calculate the quadric error metric
+        #error = vT * Q * v, Q is sum of quadric matrices for each vertex
+
+        
         a, b, c = triangles[i, 0], triangles[i, 1], triangles[i, 2]
         ux = vertices[b, 0] - vertices[a, 0]
         uy = vertices[b, 1] - vertices[a, 1]
