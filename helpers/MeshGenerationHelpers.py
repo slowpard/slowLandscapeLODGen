@@ -111,17 +111,38 @@ def generate_vert_quadratics(vertices, triangles):
 
     for i in prange(n_tri):
 
-       
-            
-        v0 = vertices[triangles[i,0]]
-        v1 = vertices[triangles[i,1]]
-        v2 = vertices[triangles[i,2]]
-        quadric = compute_plane_quadric(v0, v1, v2)
+        #v0 = vertices[triangles[i,0]]
+        #v1 = vertices[triangles[i,1]]
+        #v2 = vertices[triangles[i,2]]
+        #quadric = compute_plane_quadric(v0, v1, v2)
 
         #quadrics[i] = quadric
-        vert_quadrics[triangles[i,0]] += quadric
-        vert_quadrics[triangles[i,1]] += quadric
-        vert_quadrics[triangles[i,2]] += quadric
+        #vert_quadrics[triangles[i,0]] += quadric
+        #vert_quadrics[triangles[i,1]] += quadric
+        #vert_quadrics[triangles[i,2]] += quadric
+
+        #same math as compute_plane_quadric with scalars, numpy calls on 3-vectors allocate an array each
+        a, b, c = triangles[i, 0], triangles[i, 1], triangles[i, 2]
+        ux = vertices[b, 0] - vertices[a, 0]
+        uy = vertices[b, 1] - vertices[a, 1]
+        uz = vertices[b, 2] - vertices[a, 2]
+        vx = vertices[c, 0] - vertices[a, 0]
+        vy = vertices[c, 1] - vertices[a, 1]
+        vz = vertices[c, 2] - vertices[a, 2]
+        nx = uy * vz - uz * vy
+        ny = uz * vx - ux * vz
+        nz = ux * vy - uy * vx
+        normal_length = np.sqrt(nx * nx + ny * ny + nz * nz)
+        if normal_length < 1e-12:
+            continue
+        nx /= normal_length
+        ny /= normal_length
+        nz /= normal_length
+        plane = (nx, ny, nz, -(nx * vertices[a, 0] + ny * vertices[a, 1] + nz * vertices[a, 2]))
+        for vert in (a, b, c):
+            for j in range(4):
+                for k in range(4):
+                    vert_quadrics[vert, j, k] += plane[j] * plane[k]
 
     return vert_quadrics
 

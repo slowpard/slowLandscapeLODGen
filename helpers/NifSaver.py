@@ -98,7 +98,7 @@ def SaveGeometryIntoNif(final_verts, final_triangles, quad, folder, file_name, v
     nitristrip.data.triangles._bulk = np.asarray(final_triangles).astype('<u2').tobytes()
     nitristrip.data.uv_sets._bulk = np.clip(valid_verts[:, :2] / 131072, 0.0001, 0.9999).astype('<f4').tobytes()
 
-    #per-element version, produces byte-identical NIFs (~90x slower)
+    #per-element legacy version
     '''
     for vertice in final_verts[vertex_valid.astype(bool)]:
         temp_Vector3 = pyffi.formats.nif.NifFormat.Vector3()
