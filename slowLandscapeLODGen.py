@@ -998,12 +998,12 @@ try:
                                 height_map_cell = land_record.parse_land_data_VGHT_only()
                                 height_map[y*32:(y+1)*32 + 1, x*32:(x+1)*32 + 1] = height_map_cell
 
-                                texture_id_points, opacity_points, vertex_colors, normals, height_map_cell = land_record.parse_land_data()
+                                #texture_id_points, opacity_points, vertex_colors, normals, height_map_cell = land_record.parse_land_data()
                                 #texture_id_map[y*32:(y+1)*32, x*32:(x+1)*32] = texture_id_points
                                 #opacity_map[y*32:(y+1)*32, x*32:(x+1)*32] = opacity_points
                                 #vertex_color_map[y*32:(y+1)*32, x*32:(x+1)*32] = vertex_colors
                                 #normal_map[y*32:(y+1)*32, x*32:(x+1)*32] = normals
-                                height_map[y*32:(y+1)*32 + 1, x*32:(x+1)*32 + 1] = height_map_cell
+                                #height_map[y*32:(y+1)*32 + 1, x*32:(x+1)*32 + 1] = height_map_cell
                                 #or height_map = worldspace_heightmap[32*(quad[1] - 1 - y_low):32*(quad[1] - 1 - y_low)+34*32 + 1, 32*(quad[0] - 1 - x_low):32*(quad[0]  - 1 - x_low)+34*32 + 1]
 
                         if cfg.normal_map.shadows_enabled:
