@@ -216,7 +216,7 @@ try:
 
     cfg.paths.oblivion_folder = resolve_data_folder(cfg.paths.oblivion_folder)
     cfg.paths.plugins_txt = resolve_plugins_txt(cfg.paths.plugins_txt, cfg.paths.oblivion_folder)
-    cfg.paths.output_folder = cfg.paths.oblivion_folder
+    cfg.paths.output_folder = cfg.paths.output_folder or cfg.paths.oblivion_folder
 
     logging.info("Oblivion path: " + cfg.paths.oblivion_folder)
     logging.info("plugins.txt path: " + cfg.paths.plugins_txt)
@@ -1071,6 +1071,7 @@ try:
                                 logging.error(f"STDERR: {e.stderr}")
                         else:
 
+                            os.makedirs(os.path.join(cfg.paths.output_folder, r'textures\landscapelod\generated'), exist_ok=True)
                             combined_normal_img.save(os.path.join(cfg.paths.output_folder, r'textures\landscapelod\generated', file_name + '.dds'))
                                 
                         combined_normal_img = None

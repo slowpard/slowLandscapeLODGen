@@ -248,7 +248,7 @@ class LODSettingsWindow(ctk.CTkToplevel):
         self.ao_options.pack(fill="x", padx=(16, 0))
 
         _, self.ao_strength = self._labeled_slider(
-            self.ao_options, "Strength", 0.0, 3.0, cfg.ao.strength, decimals=2)
+            self.ao_options, "Strength", 0.0, 1.0, cfg.ao.strength, decimals=2)
         #_, self.ao_seek_range = self._labeled_slider(
         #    self.ao_options, "Seek Range", 64, 2048, cfg.ao.seek_range)
 
@@ -291,7 +291,7 @@ class LODSettingsWindow(ctk.CTkToplevel):
             
 
         _, self.z_boost = self._labeled_slider(
-            self.normal_options, "Z-Boost", 0.0, 5.0, cfg.normal_map.z_boost, decimals=2)
+            self.normal_options, "Z-Boost", 0.1, 5.0, cfg.normal_map.z_boost, decimals=2)
         ToolTip(self.z_boost,
             "Higher values make terrain features appear deeper and more defined but may look unnatural. 1.0 = no boost")
 
