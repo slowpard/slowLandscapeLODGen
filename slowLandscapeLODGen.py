@@ -414,7 +414,8 @@ try:
             "small_world": bool(wrld.worldspace_flags & SMALL_WORLD_FLAG),
             "form_id": wrld.form_id,
             "bounds": worldspace_bounds[editor_id],
-            "cell_num": sum(len(inner) for inner in cell_data[editor_id].values())
+            "cell_num": sum(len(inner) for inner in cell_data[editor_id].values()),
+            "quads": sum(len(inner) for inner in quad_data[editor_id].values())
         })
 
     def SaveImageAsDXT1(img, output_path, level=10):
