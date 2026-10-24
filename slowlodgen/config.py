@@ -140,7 +140,8 @@ class Config:
             self.mesh.threads = 1
 
         self.mesh.target_triangles = max(0, min(62000, self.mesh.target_triangles))
-        self.texture.internal_dimension = max(self.texture.internal_dimension, self.texture.texture_dimension)
+        #2048 minimum: the colour map's half-block alignment shift needs an even chunk_dim (internal / 1024)
+        self.texture.internal_dimension = max(self.texture.internal_dimension, self.texture.texture_dimension, 2048)
         self.ao.strength = max(0.0, min(1.0, self.ao.strength)) #above 1 the AO factor goes negative
         self.normal_map.z_boost = max(0.1, self.normal_map.z_boost) #z is divided by z_boost
 

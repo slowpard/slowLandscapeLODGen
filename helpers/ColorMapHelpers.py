@@ -299,13 +299,14 @@ def get_land_from_cell_coords(x, y, worldspace, cell_data):
 def fill_chunk_JIT(offset_y, offset_x, ltex, average_color, tiling_data, tiling_weights, chunk_dim):
     
     result = np.zeros((chunk_dim, chunk_dim, 3), dtype=np.float32)
+    size = tiling_data.shape[0]
 
     for j in range(chunk_dim): #i horizontal j vertical
-        y_coord = offset_y + j
+        y_coord = (offset_y + j) % size #edge blocks reach half a block outside the texture, those pixels are discarded
         for i in range(chunk_dim):
-            
-            x_coord = offset_x + i
-            #print(y_coord, x_coord, offset_y) 
+
+            x_coord = (offset_x + i) % size
+            #print(y_coord, x_coord, offset_y)
             #y1, x1, y2, x2, y3, x3 = PRECALCULATED_TILING_DATA[y_coord, x_coord, 6:6]
             color0_r, color0_g, color0_b = ltex[tiling_data[y_coord, x_coord, 0]][tiling_data[y_coord, x_coord, 1]]
             color1_r, color1_g, color1_b = ltex[tiling_data[y_coord, x_coord, 2]][tiling_data[y_coord, x_coord, 3]]
@@ -378,7 +379,8 @@ def generate_point_texture(x, y, quad_x, quad_y, worldspace, sampling_offset, lt
                            tiling_data, tiling_weights, texture_id_map, opacity_map, vertex_color_map, textures_nparray,
                            textures_nparray_avg, textures_nparray_alpha, chunk_dim):
     
-    offset =  (int((y - quad_y) * chunk_dim), int((x - quad_x) * chunk_dim)) #pillow [vertical, horizontal]
+    half = chunk_dim // 2 #vertex data is centred on pixel vertex * chunk_dim, where the mesh UV (vertex / 1024) puts the vertex
+    offset =  (int((y - quad_y) * chunk_dim) + half, int((x - quad_x) * chunk_dim) - half) #pillow [vertical, horizontal]
     #print(offset)
     y = 32 * 32 - y - 1 #because of the way the texture is read
 
@@ -448,15 +450,21 @@ def blend_textures_matrix(texture, new_texture, opacity, chunk_dim):
 @njit(fastmath=True, parallel=True, cache=True)
 def generate_full_texture_layer(input, ltex_to_texture_hashed, opacity_matrix, sampling_offset, tiling_data, tiling_weights, texture_id_map, opacity_map, vertex_color_map, textures_nparray, textures_nparray_avg, textures_nparray_alpha, chunk_dim):
     output_texture = input
-    for x in prange(32*32):
+    size = output_texture.shape[0]
+    half = chunk_dim // 2 #same shift as in generate_point_texture
+    for x in prange(32*32 + 1): #one extra block on each axis covers the half block at the far edge
         #print(x)
-        for y in range(32*32):
+        for y in range(-1, 32*32):
             if True: #x > 5*32 and x < 6*32 and y > 13*32 and y < 14*32:
                 sample = generate_point_texture(x, y, 0, 0, 'Tamriel', sampling_offset,  ltex_to_texture_hashed, tiling_data, tiling_weights, texture_id_map, opacity_map, vertex_color_map, textures_nparray, textures_nparray_avg, textures_nparray_alpha, chunk_dim)
                 for i in range(chunk_dim):
-                    p = i + x * chunk_dim
+                    p = i + x * chunk_dim - half
+                    if p < 0 or p >= size:
+                        continue
                     for j in range(chunk_dim):
-                        t = j + y * chunk_dim
+                        t = j + y * chunk_dim + half
+                        if t < 0 or t >= size:
+                            continue
                         for c in range(3): #at this point idk why i'm doing this in python
                             output_texture[t, p, c] = output_texture[t, p, c] + sample[j, i, c] * opacity_matrix[j, i]
                 #output_texture[y * tex_point_dim : (y+1) * tex_point_dim, x * tex_point_dim : (x+1) * tex_point_dim] = 
@@ -513,10 +521,10 @@ def compute_ao_map(
     step_switch = init_step
     steps = int(np.ceil(np.log2(total_range / init_step + 1)) * init_step) #that's in how many iters we reach total_range if we double the step every 32 iters
     
-    for _j in prange(tex_size): #prange(y_origin + 1, y_origin + size + 1, 2):
-        j = _j + y_origin + 1
-        for _i in range(tex_size): #range(x_origin + 1, x_origin + size + 1, 2):
-            i = _i + x_origin + 1            
+    for _j in prange(tex_size): #ao[_j, _i] is the vertex at height[y_origin + _j, x_origin + _i]
+        j = _j + y_origin
+        for _i in range(tex_size):
+            i = _i + x_origin
             h0 = height[j, i]
             sum_angles = 0.0
 
@@ -591,20 +599,20 @@ def apply_ao_to_texture(texture, ao, ao_strength= 1.0):
     tex_size = texture.shape[0]
     ao_size = ao.shape[0]  # 1025
     
-    scale = np.float32((ao_size - 1) / (tex_size - 1))
+    scale = np.float32((ao_size - 1) / tex_size) #pixel centre (j + 0.5) / tex_size in UV, ao index = vertex
     strength_inv = np.float32(1.0 - ao_strength)
     ao_strength_f = np.float32(ao_strength)
     ao_max_idx = ao_size - 1
     
     for j in prange(tex_size):
-        ao_y = j * scale
+        ao_y = (j + 0.5) * scale
         y0 = int(ao_y)
         y1 = min(y0 + 1, ao_max_idx)
         fy = ao_y - y0
         fy_inv = 1.0 - fy
         
         for i in range(tex_size):
-            ao_x = i * scale
+            ao_x = (i + 0.5) * scale
             x0 = int(ao_x)
             x1 = min(x0 + 1, ao_max_idx)
             fx = ao_x - x0
