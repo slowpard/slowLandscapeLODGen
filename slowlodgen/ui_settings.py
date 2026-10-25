@@ -132,6 +132,8 @@ class LODSettingsWindow(ctk.CTkToplevel):
             'mesh_on': cfg.general.generate_meshes, 'triangles': cfg.mesh.target_triangles,
             'threads': cfg.mesh.threads if cfg.mesh.multithreaded else 1,
             'ebf': 'On' if ebf is True else 'Off' if ebf is False else 'Auto',
+            'color_dds_level': cfg.texture.dds_encode_quality,
+            'normal_dds_level': cfg.normal_map.dds_encode_quality,
             'output_folder': cfg.paths.output_folder,
         }
 
@@ -144,6 +146,8 @@ class LODSettingsWindow(ctk.CTkToplevel):
         cfg.general.generate_normal_maps = v['normal_on']
         cfg.general.generate_meshes = v['mesh_on']
         cfg.paths.output_folder = v['output_folder']
+        cfg.texture.dds_encode_quality = int(v['color_dds_level'])
+        cfg.normal_map.dds_encode_quality = int(v['normal_dds_level'])
 
         cfg.texture.texture_dimension = int(v['color_res'])
         cfg.texture.internal_dimension = int(v['color_internal'])
@@ -280,6 +284,9 @@ class LODSettingsWindow(ctk.CTkToplevel):
         self._setting(c, 'Blending falloff', 'How much neighbouring texture samples blend. Lower is smooth but blurry; '
                       'higher is sharp but blocky, as each sample shows as a square.',
                       self._slider('falloff', 1, 10, 0.5, '{:.1f}'), enabled_key='color_on')
+        self._setting(c, 'DXT1 quality', 'Compression effort, same file size. Higher is slower and slightly less blocky; '
+                      'ground texture detail hides most of the difference.',
+                      self._slider('color_dds_level', 0, 18, 1), enabled_key='color_on')
         self._setting(c, 'Ambient occlusion', 'Darkens valleys and crevices.', self._switch('ao_on'),
                       enabled_key='color_on', note='Experimental.')
         self._setting(c, 'AO strength', None, self._slider('ao_strength', 0, 1, 0.05, '{:.2f}'), enabled_key='ao_on')
@@ -289,6 +296,9 @@ class LODSettingsWindow(ctk.CTkToplevel):
                       self._seg('normal_res', RESOLUTIONS, RESOLUTION_LABELS), enabled_key='normal_on')
         self._setting(c, 'Format', 'DXT1 is 6× smaller but blockier in lighting.',
                       self._seg('normal_dxt1', [True, False], ['DXT1', 'Uncompressed']), enabled_key='normal_on')
+        self._setting(c, 'DXT1 quality', 'Compression effort, same file size. Higher is less blocky on smooth slopes; '
+                      '14 is a good balance, 18 is 4× slower for little gain.',
+                      self._slider('normal_dds_level', 0, 18, 1), enabled_key='normal_dxt1')
         self._setting(c, 'Z-boost', 'Higher makes distant hills and mountains stand out more, lower makes them look flatter. '
                       '1.0 matches the real terrain; other values look less natural.',
                       self._slider('z_boost', 0.1, 5, 0.05, '{:.2f}'), enabled_key='normal_on')

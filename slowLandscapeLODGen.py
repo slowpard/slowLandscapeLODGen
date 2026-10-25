@@ -1089,7 +1089,7 @@ try:
                             try:
                                 logging.info(f'Saving texture {file_name}.dds...')
                                 #temp_image = Image.fromarray(combined_normal_img.astype(np.uint8)).transpose(Image.FLIP_TOP_BOTTOM)
-                                SaveImageAsDXT1(combined_normal_img, os.path.join(cfg.paths.output_folder, r'textures\landscapelod\generated', file_name + '.dds'), cfg.texture.dds_encode_quality, dither=cfg.normal_map.dxt_dither)
+                                SaveImageAsDXT1(combined_normal_img, os.path.join(cfg.paths.output_folder, r'textures\landscapelod\generated', file_name + '.dds'), cfg.normal_map.dds_encode_quality, dither=cfg.normal_map.dxt_dither)
 
                             except subprocess.CalledProcessError as e:
                                 logging.error(f"SAVING TEXTURE FAILED {e.returncode}")

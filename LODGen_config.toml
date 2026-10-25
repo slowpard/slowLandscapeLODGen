@@ -46,6 +46,7 @@ z_boost = 1.0
 shadows_enabled = false
 shadow_strength = 1.0
 compression = true
+dds_encode_quality = 14
 
 [normal_map_noise]
 noise_enabled = false

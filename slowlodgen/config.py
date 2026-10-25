@@ -35,7 +35,7 @@ class MeshSettings:
 class TextureSettings:
     texture_dimension: int = 2048
     internal_dimension: int = 2048
-    dds_encode_quality: int = 10
+    dds_encode_quality: int = 10 #quicktex BC1 level 0-18 for colour maps
 
     gauss_blending_falloff: float = 2.5
 
@@ -71,6 +71,7 @@ class NormalMapSettings:
     shadows_enabled: bool = False
     shadow_strength: float = 1.0
     compression: bool = True
+    dds_encode_quality: int = 14 #quicktex BC1 level 0-18 for normal maps, smooth gradients benefit more than colour maps
     dxt_dither: float = 0.0 #noise amplitude (0-255 units) added to every mip level before DXT1, breaks up block steps on gradients; 0 = off
 
     @property
@@ -145,6 +146,8 @@ class Config:
         self.texture.internal_dimension = max(self.texture.internal_dimension, self.texture.texture_dimension, 2048)
         self.ao.strength = max(0.0, min(1.0, self.ao.strength)) #above 1 the AO factor goes negative
         self.normal_map.z_boost = max(0.1, self.normal_map.z_boost) #z is divided by z_boost
+        self.texture.dds_encode_quality = max(0, min(18, int(self.texture.dds_encode_quality))) #quicktex BC1 level range
+        self.normal_map.dds_encode_quality = max(0, min(18, int(self.normal_map.dds_encode_quality)))
 
 
 def load_config(path):
