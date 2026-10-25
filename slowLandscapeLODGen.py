@@ -14,6 +14,7 @@ import numpy as np
 import random
 import subprocess
 import quicktex.dds
+import quicktex.image_utils
 import quicktex.s3tc.bc1
 import customtkinter as ctk
 import dataclasses
@@ -418,11 +419,35 @@ try:
             "quads": sum(len(inner) for inner in quad_data[editor_id].values())
         })
 
-    def SaveImageAsDXT1(img, output_path, level=10):
-    
+    def SaveImageAsDXT1(img, output_path, level=10, dither=0.0):
+
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        quicktex.dds.encode(img, quicktex.s3tc.bc1.BC1Encoder(level, 
-                        quicktex.s3tc.bc1.BC1Encoder.ColorMode.FourColor), 'DXT1').save(output_path)
+        encoder = quicktex.s3tc.bc1.BC1Encoder(level, quicktex.s3tc.bc1.BC1Encoder.ColorMode.FourColor)
+        if not dither:
+            quicktex.dds.encode(img, encoder, 'DXT1').save(output_path)
+            return
+
+        #same mip chain as quicktex.dds.encode, but every level gets its own triangular noise before encoding
+        #(dithering only the top level would be averaged away in the mips that distant LOD actually shows)
+        img = img.convert('RGB')
+        rng = np.random.default_rng(0)
+        dds = quicktex.dds.DDSFile()
+        for size in quicktex.image_utils.mip_sizes(img.size, None):
+            level_img = img if size == img.size else img.resize(size, Image.BILINEAR)
+            pixels = np.asarray(level_img, dtype=np.float32)
+            noise = (rng.random(pixels.shape, dtype=np.float32) - rng.random(pixels.shape, dtype=np.float32)) * dither
+            pixels = np.clip(np.rint(pixels + noise), 0, 255).astype(np.uint8)
+            rawtex = quicktex.RawTexture.frombytes(Image.fromarray(pixels).convert('RGBX').tobytes('raw', 'RGBX'), *size)
+            dds.textures.append(encoder.encode(rawtex))
+
+        dds.flags = quicktex.dds.DDSFlags.TEXTURE | quicktex.dds.DDSFlags.LINEAR_SIZE | quicktex.dds.DDSFlags.MIPMAPCOUNT
+        dds.caps = (quicktex.dds.Caps0.TEXTURE | quicktex.dds.Caps0.MIPMAP | quicktex.dds.Caps0.COMPLEX, 0, 0, 0)
+        dds.mipmap_count = len(dds.textures)
+        dds.pitch = dds.textures[0].nbytes
+        dds.size = dds.textures[0].size
+        dds.pf_flags = quicktex.dds.PFFlags.FOURCC
+        dds.four_cc = 'DXT1'
+        dds.save(output_path)
 
 
     def GetFilenameForFile(form_id, worldspace, quad):
@@ -1064,7 +1089,7 @@ try:
                             try:
                                 logging.info(f'Saving texture {file_name}.dds...')
                                 #temp_image = Image.fromarray(combined_normal_img.astype(np.uint8)).transpose(Image.FLIP_TOP_BOTTOM)
-                                SaveImageAsDXT1(combined_normal_img, os.path.join(cfg.paths.output_folder, r'textures\landscapelod\generated', file_name + '.dds'), cfg.texture.dds_encode_quality)
+                                SaveImageAsDXT1(combined_normal_img, os.path.join(cfg.paths.output_folder, r'textures\landscapelod\generated', file_name + '.dds'), cfg.texture.dds_encode_quality, dither=cfg.normal_map.dxt_dither)
 
                             except subprocess.CalledProcessError as e:
                                 logging.error(f"SAVING TEXTURE FAILED {e.returncode}")

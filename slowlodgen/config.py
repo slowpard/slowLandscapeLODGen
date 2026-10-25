@@ -71,6 +71,7 @@ class NormalMapSettings:
     shadows_enabled: bool = False
     shadow_strength: float = 1.0
     compression: bool = True
+    dxt_dither: float = 0.0 #noise amplitude (0-255 units) added to every mip level before DXT1, breaks up block steps on gradients; 0 = off
 
     @property
     def internal_dimension(self):
