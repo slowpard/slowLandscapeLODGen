@@ -490,6 +490,21 @@ try:
                 logging.warning("EBF TerrainLODLoadPatch is active but EBF naming is off — vanilla naming is load-order dependent")
             return False
 
+    def detect_uv_inset(setting, game_folder, color_res, normal_res):
+        dll_exists = os.path.isfile(os.path.join(game_folder, "OBSE", "Plugins", "TerrainLODClamp.dll"))
+        inset = 0.5 / min(color_res, normal_res)
+
+        if setting == "Auto":
+            setting = not dll_exists
+        elif setting is True and dll_exists:
+            logging.info("UV inset forced on although TerrainLODClamp.dll is installed")
+        elif setting is False and not dll_exists:
+            logging.warning("UV inset off and TerrainLODClamp.dll not found -- expect seams at LOD quad edges")
+
+        logging.info(f"TerrainLODClamp.dll {'found' if dll_exists else 'not found'}, "
+                     + (f"UV inset {inset:.6f} (half a {min(color_res, normal_res)} texel)" if setting else "no UV inset"))
+        return inset if setting else 0.0
+
 
 
 
@@ -500,6 +515,7 @@ try:
         confirmed, worldspaces_to_generate = app.show_settings(cfg, ws_list)
         app.quit()
         cfg.general.use_enginebugfixes_naming_scheme = detect_enginebugfixes_naming(cfg.general.use_enginebugfixes_naming_scheme, cfg.paths.oblivion_folder)
+        cfg.mesh.uv_inset = detect_uv_inset(cfg.mesh.uv_clamp, cfg.paths.oblivion_folder, cfg.texture.texture_dimension, cfg.normal_map.texture_dimension)
 
         if len(worldspaces_to_generate) == 0:
             logging.warning("No worldspaces selected for generation. Please select at least one.")
@@ -1216,7 +1232,7 @@ try:
 
                 ###################NIF GENERATION#####################
 
-                GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, cfg.paths.output_folder, form_id, TOOL_DIR, GetFilenameForFile, safe_routine=cfg.mesh.safe_nif_saver)
+                GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, cfg.paths.output_folder, form_id, TOOL_DIR, GetFilenameForFile, safe_routine=cfg.mesh.safe_nif_saver, uv_inset=cfg.mesh.uv_inset)
                 mesh_data = None
 
 

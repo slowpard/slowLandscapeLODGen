@@ -23,6 +23,9 @@ class MeshSettings:
     multithreaded: bool = True
     threads: int = 8
     safe_nif_saver: bool = False
+    uv_clamp: Union[bool, Literal["Auto"]] = "Auto" 
+    uv_inset: float = 0.0
+	
 
     @property
     def target_vertices(self) -> int:

@@ -33,6 +33,7 @@ first_loop_min_error = 500
 target_triangles = 62000
 multithreaded = true
 threads = 8
+uv_clamp = "Auto"
 
 [texture]
 texture_dimension = 4096

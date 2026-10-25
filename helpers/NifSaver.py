@@ -74,7 +74,7 @@ def triangulate_safe(vertices_2d, segments, temp_dir, flags='pY', timeout=15, na
                 pass
 
 
-def SaveGeometryIntoNif(final_verts, final_triangles, quad, folder, file_name, vertex_valid):         
+def SaveGeometryIntoNif(final_verts, final_triangles, quad, folder, file_name, vertex_valid, uv_inset=0.0):
     nif = pyffi.formats.nif.NifFormat.Data(version=int(0x14000005), user_version=0)
     nif.header._version_value_._value = int(0x14000005)
     nif.header.endian_type = 1
@@ -96,7 +96,7 @@ def SaveGeometryIntoNif(final_verts, final_triangles, quad, folder, file_name, v
                                                       valid_verts[:, 1] + quad[1] * 65536.0 * 2,
                                                       valid_verts[:, 2])).astype('<f4').tobytes()
     nitristrip.data.triangles._bulk = np.asarray(final_triangles).astype('<u2').tobytes()
-    nitristrip.data.uv_sets._bulk = np.clip(valid_verts[:, :2] / 131072, 0.0001, 0.9999).astype('<f4').tobytes()
+    nitristrip.data.uv_sets._bulk = np.clip(valid_verts[:, :2] / 131072, uv_inset, 1.0 - uv_inset).astype('<f4').tobytes()
 
     #per-element legacy version
     '''
@@ -285,7 +285,7 @@ def validate_triangle_input(verts_2d, pairs, tol=1.0):
     return issues
 
 
-def GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, folder, form_id, tool_dir, filename_func, safe_routine=False):
+def GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, folder, form_id, tool_dir, filename_func, safe_routine=False, uv_inset=0.0):
     
     '''
     def get_border_segments(verts, border_mask, border_axis):
@@ -461,7 +461,7 @@ def GenerateNifs(mesh_data, worldspace, worldspace_heightmap, x_low, y_low, fold
                 updated_verts[i, 2] = get_height_at_xy(updated_verts[i, 0] + x_quad * 131072.0, updated_verts[i, 1] + y_quad * 131072.0, worldspace_heightmap, x_low, y_low)
             #print(updated_verts[i, 2])
 
-            SaveGeometryIntoNif(updated_verts, tris['triangles'], (x_quad, y_quad), folder, file_name, np.full(len(updated_verts), True, dtype=bool))
+            SaveGeometryIntoNif(updated_verts, tris['triangles'], (x_quad, y_quad), folder, file_name, np.full(len(updated_verts), True, dtype=bool), uv_inset=uv_inset)
 
 
 

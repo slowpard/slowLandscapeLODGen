@@ -130,6 +130,7 @@ class LODSettingsWindow(ctk.CTkToplevel):
             'noise_on': cfg.normal_map_noise.noise_enabled,
             'noise_intensity': cfg.normal_map_noise.noise_intensity, 'noise_scale': cfg.normal_map_noise.noise_scale,
             'mesh_on': cfg.general.generate_meshes, 'triangles': cfg.mesh.target_triangles,
+            'uv_clamp': 'On' if cfg.mesh.uv_clamp is True else 'Off' if cfg.mesh.uv_clamp is False else 'Auto',
             'threads': cfg.mesh.threads if cfg.mesh.multithreaded else 1,
             'ebf': 'On' if ebf is True else 'Off' if ebf is False else 'Auto',
             'color_dds_level': cfg.texture.dds_encode_quality,
@@ -165,6 +166,7 @@ class LODSettingsWindow(ctk.CTkToplevel):
         cfg.normal_map_noise.noise_scale = int(v['noise_scale'])
 
         cfg.mesh.target_triangles = int(v['triangles'])
+        cfg.mesh.uv_clamp = {'Auto': 'Auto', 'On': True, 'Off': False}[v['uv_clamp']]
         cfg.mesh.threads = int(v['threads'])
         cfg.mesh.multithreaded = cfg.mesh.threads > 1
 
@@ -323,6 +325,21 @@ class LODSettingsWindow(ctk.CTkToplevel):
     def _mesh_controls(self, c):
         self._setting(c, 'Triangles per quad', None, self._slider('triangles', 4000, 62000, 1000, '{:,.0f}'), enabled_key='mesh_on')
         self._setting(c, 'Threads', None, self._slider('threads', 1, os.cpu_count() or 8, 1), enabled_key='mesh_on')
+        self._setting(c, 'Edge UV inset', 'Keeps quad edges from blending with the opposite edge of their texture. '
+                      'Not needed with TerrainLODClamp.dll; Auto turns it off when the plugin is installed.',
+                      self._seg('uv_clamp', ['Auto', 'On', 'Off']), enabled_key='mesh_on', note=self._uv_clamp_note)
+
+    def _uv_clamp_note(self):
+        #same detection and size as detect_uv_inset() in the main script
+        v = self.v
+        found = os.path.isfile(os.path.join(self.cfg.paths.oblivion_folder, 'OBSE', 'Plugins', 'TerrainLODClamp.dll'))
+        smallest = min(v['color_res'], v['normal_res'])
+        status = f'TerrainLODClamp.dll {"found" if found else "not found"}'
+        if v['uv_clamp'] == 'On' or (v['uv_clamp'] == 'Auto' and not found):
+            return f'{status}: edges inset by half a {short(smallest)} texel ({65536 / smallest:.0f} units).', False
+        if not found:
+            return f'{status}: no inset, expect seams at quad edges.', True
+        return f'{status}: no inset needed.', False
 
     def _color_summary(self):
         v = self.v
