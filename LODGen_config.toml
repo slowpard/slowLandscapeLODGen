@@ -40,6 +40,7 @@ texture_dimension = 4096
 internal_dimension = 4096
 dds_encode_quality = 10
 gauss_blending_falloff = 2.5
+noise_compensation = 0.0
 
 [normal_map]
 texture_dimension = 2048

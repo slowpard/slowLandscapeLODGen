@@ -631,6 +631,20 @@ def apply_ao_to_texture(texture, ao, ao_strength= 1.0):
             texture[j, i, 1] = np.uint8(min(texture[j, i, 1] * ao_val, 255.0))
             texture[j, i, 2] = np.uint8(min(texture[j, i, 2] * ao_val, 255.0))
 
+@njit(parallel=True, fastmath=True, cache=True)
+def apply_noise_compensation(texture, gain, knee=204.0):
+    #brightens by gain to undo the LOD shader's terrainnoise darkening; above the knee the curve bends
+    #smoothly towards 255 instead of clipping, so bright ground (snow) keeps its detail
+    H, W, C = texture.shape
+    span = 255.0 - knee
+    for j in prange(H):
+        for i in range(W):
+            for c in range(C):
+                v = texture[j, i, c] * gain
+                if v > knee:
+                    v = knee + span * (1.0 - math.exp(-(v - knee) / span))
+                texture[j, i, c] = v
+
 @njit(parallel=True, fastmath=True)
 def distance_to_positive_numba(height: np.ndarray):
 

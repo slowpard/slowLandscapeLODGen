@@ -538,6 +538,7 @@ try:
 
 
             list_of_texture_files.append('textures\\landscape\\default.dds')
+            terrain_noise = 'textures\\effects\\terrainnoise.dds' #noise texture of the LOD shader, read for noise compensation
 
             bsa_files = [f for f in os.listdir(cfg.paths.oblivion_folder) if f.endswith('.bsa')]
             bsa_loadorder = [] + cfg.hardcoded_bsas
@@ -556,7 +557,7 @@ try:
                 bsa_obj.parse(os.path.join(cfg.paths.oblivion_folder, bsa))
                 list_to_extract = []
                 for file in bsa_obj.get_list_of_files():
-                    if file.lower() in list_of_texture_files:
+                    if file.lower() in list_of_texture_files or (cfg.texture.noise_compensation and file.lower() == terrain_noise):
                         list_to_extract.append(file)
 
                 if len(list_to_extract) > 0:
@@ -566,6 +567,21 @@ try:
                     except:
                         logging.error(f'Failed to extract LOD files from {bsa}')
 
+            #the LOD shader (SLS2001.pso) multiplies the color map by 0.5 + 0.5 * terrainnoise.r and loaded land does not,
+            #so distant LOD looks darker than the same ground nearby; noise compensation divides by the average of that factor
+            noise_gain = 1.0
+            if cfg.texture.noise_compensation:
+                noise_path = os.path.join(cfg.paths.oblivion_folder, terrain_noise)
+                if not os.path.exists(noise_path):
+                    noise_path = os.path.join(cfg.paths.oblivion_folder, 'LandscapeLODTemp\\BSATextures', terrain_noise)
+                if os.path.exists(noise_path):
+                    noise_red = np.asarray(Image.open(noise_path).convert('RGB'), dtype=np.float64)[..., 0] / 255
+                    noise_factor = float((0.5 + 0.5 * noise_red).mean())
+                    noise_gain = 1 + (1 / noise_factor - 1) * cfg.texture.noise_compensation
+                    logging.info(f'Noise compensation: {noise_path} darkens LOD by {1 - noise_factor:.1%} on average, '
+                                 f'color maps brightened x{noise_gain:.3f}')
+                else:
+                    logging.warning(f'Noise compensation: {terrain_noise} not found, color maps are not brightened')
 
             for tex in list_of_texture_files:
                 texture_path = os.path.join(cfg.paths.oblivion_folder, tex)
@@ -812,6 +828,9 @@ try:
                 #    print("texconv failed:")
                 #    print(e.stderr)
                 #subprocess.run(command, text=True, capture_output=True)
+
+                if noise_gain != 1.0:
+                    apply_noise_compensation(output_texture, noise_gain)
 
                 temp_image = Image.fromarray(output_texture.astype(np.uint8)).transpose(Image.FLIP_TOP_BOTTOM)
                 output_texture = None

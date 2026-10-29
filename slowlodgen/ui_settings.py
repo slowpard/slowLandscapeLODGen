@@ -122,6 +122,7 @@ class LODSettingsWindow(ctk.CTkToplevel):
             'color_res': texture_dimension,
             'color_internal': nearest(max(cfg.texture.internal_dimension, texture_dimension, 2048), INTERNAL),
             'falloff': cfg.texture.gauss_blending_falloff,
+            'noise_comp': cfg.texture.noise_compensation,
             'ao_on': cfg.ao.enabled, 'ao_strength': cfg.ao.strength,
             'normal_on': cfg.general.generate_normal_maps,
             'normal_res': nearest(cfg.normal_map.texture_dimension, RESOLUTIONS),
@@ -153,6 +154,7 @@ class LODSettingsWindow(ctk.CTkToplevel):
         cfg.texture.texture_dimension = int(v['color_res'])
         cfg.texture.internal_dimension = int(v['color_internal'])
         cfg.texture.gauss_blending_falloff = round(float(v['falloff']), 1)
+        cfg.texture.noise_compensation = round(float(v['noise_comp']), 2)
         cfg.ao.enabled = v['ao_on']
         cfg.ao.strength = round(float(v['ao_strength']), 2)
 
@@ -286,6 +288,10 @@ class LODSettingsWindow(ctk.CTkToplevel):
         self._setting(c, 'Blending falloff', 'How much neighbouring texture samples blend. Lower is smooth but blurry; '
                       'higher is sharp but blocky, as each sample shows as a square.',
                       self._slider('falloff', 1, 10, 0.5, '{:.1f}'), enabled_key='color_on')
+        self._setting(c, 'Noise brightness compensation', 'The game darkens distant LOD with its terrain noise texture '
+                      '(about 27% with the vanilla one). Brightens the color map by the measured amount so LOD matches '
+                      'the brightness of loaded land. 0 = off.',
+                      self._slider('noise_comp', 0, 1, 0.05, '{:.2f}'), enabled_key='color_on')
         self._setting(c, 'DXT1 quality', 'Compression effort, same file size. Higher is slower and slightly less blocky; '
                       'ground texture detail hides most of the difference.',
                       self._slider('color_dds_level', 0, 18, 1), enabled_key='color_on')
