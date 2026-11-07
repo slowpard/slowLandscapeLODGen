@@ -450,6 +450,28 @@ try:
         dds.save(output_path)
 
 
+    def SaveImageUncompressed(img, output_path):
+
+        #Pillow's DDS writer has no mips: same mip chain as quicktex.dds.encode, written as raw 32-bit A8R8G8B8
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        img = img.convert('RGBA')
+        dds = quicktex.dds.DDSFile()
+        for size in quicktex.image_utils.mip_sizes(img.size, None):
+            level_img = img if size == img.size else img.resize(size, Image.BILINEAR)
+            dds.textures.append(level_img.tobytes('raw', 'BGRA'))
+
+        dds.flags = quicktex.dds.DDSFlags.TEXTURE | quicktex.dds.DDSFlags.PITCH | quicktex.dds.DDSFlags.MIPMAPCOUNT
+        dds.caps = (quicktex.dds.Caps0.TEXTURE | quicktex.dds.Caps0.MIPMAP | quicktex.dds.Caps0.COMPLEX, 0, 0, 0)
+        dds.mipmap_count = len(dds.textures)
+        dds.pitch = img.width * 4
+        dds.size = img.size
+        dds.pf_flags = quicktex.dds.PFFlags.RGB | quicktex.dds.PFFlags.ALPHAPIXELS
+        dds.four_cc = ''
+        dds.pixel_size = 32
+        dds.pixel_bitmasks = (0xFF0000, 0x00FF00, 0x0000FF, 0xFF000000)
+        dds.save(output_path)
+
+
     def GetFilenameForFile(form_id, worldspace, quad):
         if (form_id >> 24) & 0xFF == 0:
             return f'{form_id}.{(quad[0]*32):02}.{(quad[1]*32):02}.32'
@@ -1132,8 +1154,7 @@ try:
                                 logging.error(f"STDERR: {e.stderr}")
                         else:
 
-                            os.makedirs(os.path.join(cfg.paths.output_folder, r'textures\landscapelod\generated'), exist_ok=True)
-                            combined_normal_img.save(os.path.join(cfg.paths.output_folder, r'textures\landscapelod\generated', file_name + '.dds'))
+                            SaveImageUncompressed(combined_normal_img, os.path.join(cfg.paths.output_folder, r'textures\landscapelod\generated', file_name + '.dds'))
                                 
                         combined_normal_img = None
 

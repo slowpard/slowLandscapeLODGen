@@ -45,7 +45,7 @@ def quad_count(ws):
 
 
 def estimate(v, worldspaces):
-    #measured on Tamriel: DXT1 with mipmaps = res^2 * 2/3 bytes, uncompressed normals = res^2 * 3,
+    #measured on Tamriel: DXT1 with mipmaps = res^2 * 2/3 bytes, uncompressed normals with mipmaps = res^2 * 16/3,
     #meshes ~11 bytes per target triangle; RAM: color stage ~40 B per internal pixel, normals ~60 B per pixel,
     #mesh stage ~0.45 GB per thread
     quads = sum(quad_count(w) for w in worldspaces)
@@ -54,7 +54,7 @@ def estimate(v, worldspaces):
         per_quad += v['color_res'] ** 2 * 2 / 3
         ram = max(ram, 0.6 + v['color_internal'] ** 2 * 40 / 2**30)
     if v['normal_on']:
-        per_quad += v['normal_res'] ** 2 * (2 / 3 if v['normal_dxt1'] else 3)
+        per_quad += v['normal_res'] ** 2 * (2 / 3 if v['normal_dxt1'] else 16 / 3)
         ram = max(ram, 0.6 + max(v['normal_res'], 1024) ** 2 * 60 / 2**30)
     if v['mesh_on']:
         per_quad += v['triangles'] * 11
@@ -302,7 +302,7 @@ class LODSettingsWindow(ctk.CTkToplevel):
     def _normal_controls(self, c):
         self._setting(c, 'Resolution', 'Above 1K: smoother shading, no new details.',
                       self._seg('normal_res', RESOLUTIONS, RESOLUTION_LABELS), enabled_key='normal_on')
-        self._setting(c, 'Format', 'DXT1 is 6× smaller but blockier in lighting.',
+        self._setting(c, 'Format', 'DXT1 is 8× smaller but blockier in lighting.',
                       self._seg('normal_dxt1', [True, False], ['DXT1', 'Uncompressed']), enabled_key='normal_on')
         self._setting(c, 'DXT1 quality', 'Compression effort, same file size. Higher is less blocky on smooth slopes; '
                       '14 is a good balance, 18 is 4× slower for little gain.',
