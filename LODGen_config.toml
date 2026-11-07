@@ -11,7 +11,7 @@ excluded_worldspaces = [
 	"ToddWorld", "Toddland", "ToddTestLand2", "MQ15TestWorld3",
 	"TestTree", "TestHopeTrees", "SETest", "SETestGrant", "BloatedFloatAtSea",
 	"TestMurkDweller", "TestHungerWorld", "TestShambles", "TestRegion",
-	"TestExRuin", "TestGnarlWorld", "OblivionMQKvatch", "TestGragtown",
+	"TestExRuin", "TestGnarlWorld", "TestGragtown",
 	"TestWorld", "TestFortRuinsExtWarehouse", "TestGatekeeper",
 	"TestElytraWorld", "TestFleshAtronach", "TestBaliwogWorld", 
 	"TestCreaturesGrummiteWorld", "TestJyggylag", "TestCreatureSkeletalHoundWorld",
@@ -34,6 +34,8 @@ target_triangles = 62000
 multithreaded = true
 threads = 8
 uv_clamp = "Auto"
+peak_weight = 3.0
+keep_peak_height = true
 
 [texture]
 texture_dimension = 4096

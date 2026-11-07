@@ -1213,7 +1213,8 @@ try:
 
                 results = GenerateLODMeshDataThreaded(worldspace_heightmap, quads, x_low, y_low, cfg.mesh.threads,
                                                       target_verts=cfg.mesh.target_vertices, min_error=cfg.mesh.mesh_min_error,
-                                                      vertices_batch=cfg.mesh.vertices_batch, max_error_resort_skip=cfg.mesh.max_error_resort_skip)
+                                                      vertices_batch=cfg.mesh.vertices_batch, max_error_resort_skip=cfg.mesh.max_error_resort_skip,
+                                                      peak_weight=cfg.mesh.peak_weight, keep_peak_height=cfg.mesh.keep_peak_height)
                 for quad, result in zip(quads, results):
                     mesh_data[quad[0]][quad[1]] = result
 

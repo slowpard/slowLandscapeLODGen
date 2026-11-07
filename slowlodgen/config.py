@@ -23,8 +23,10 @@ class MeshSettings:
     multithreaded: bool = True
     threads: int = 8
     safe_nif_saver: bool = False
-    uv_clamp: Union[bool, Literal["Auto"]] = "Auto" 
+    uv_clamp: Union[bool, Literal["Auto"]] = "Auto"
     uv_inset: float = 0.0
+    peak_weight: float = 3.0 #extra decimation weight on peaks, ridges and summits (the skyline); 0 = off
+    keep_peak_height: bool = True #collapses that touch a summit keep it in place instead of averaging it lower
 	
 
     @property
@@ -146,6 +148,7 @@ class Config:
             self.mesh.threads = 1
 
         self.mesh.target_triangles = max(0, min(62000, self.mesh.target_triangles))
+        self.mesh.peak_weight = max(0.0, self.mesh.peak_weight)
         #2048 minimum: the colour map's half-block alignment shift needs an even chunk_dim (internal / 1024)
         self.texture.internal_dimension = max(self.texture.internal_dimension, self.texture.texture_dimension, 2048)
         self.ao.strength = max(0.0, min(1.0, self.ao.strength)) #above 1 the AO factor goes negative

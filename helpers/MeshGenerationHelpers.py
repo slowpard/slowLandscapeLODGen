@@ -52,6 +52,51 @@ def calculate_max_eigenvalue(f_xx, f_yy, f_xy):
 def calculate_gradient_magnitude(f_x, f_y):
     return np.sqrt(f_x**2 + f_y**2)
 
+PROMINENCE_RADIUS = 16 #vertices (2048 units): prominence is the height above the mean of a cell-sized window
+SUMMIT_RADIUS = 4 #vertices (512 units): a summit is the highest point within this radius
+SUMMIT_MIN_PROMINENCE = 50.0 #units above the surroundings, so small bumps on flat ground are not summits
+
+@njit(cache=True)
+def calculate_prominence(height_map, radius):
+    #height above the mean of the surrounding (2*radius+1)^2 window: positive on peaks and ridges, negative in valleys
+    #heights are clipped at -2000 first so the -65000 of missing land does not turn its neighbours into peaks
+    rows, cols = height_map.shape
+    integral = np.zeros((rows + 1, cols + 1), dtype=np.float64)
+    for i in range(rows):
+        for j in range(cols):
+            integral[i + 1, j + 1] = max(height_map[i, j], -2000.0) + integral[i, j + 1] + integral[i + 1, j] - integral[i, j]
+    prominence = np.zeros((rows, cols), dtype=np.float32)
+    for i in range(rows):
+        i0 = max(i - radius, 0)
+        i1 = min(i + radius + 1, rows)
+        for j in range(cols):
+            j0 = max(j - radius, 0)
+            j1 = min(j + radius + 1, cols)
+            total = integral[i1, j1] - integral[i0, j1] - integral[i1, j0] + integral[i0, j0]
+            prominence[i, j] = max(height_map[i, j], -2000.0) - total / ((i1 - i0) * (j1 - j0))
+    return prominence
+
+@njit(cache=True)
+def find_summits(height_map, prominence, radius, min_prominence):
+    #vertices strictly higher than everything within radius that also stand min_prominence above their surroundings
+    rows, cols = height_map.shape
+    summits = np.zeros((rows, cols), dtype=np.bool_)
+    for i in range(rows):
+        for j in range(cols):
+            if prominence[i, j] < min_prominence:
+                continue
+            h = height_map[i, j]
+            is_summit = True
+            for ii in range(max(i - radius, 0), min(i + radius + 1, rows)):
+                for jj in range(max(j - radius, 0), min(j + radius + 1, cols)):
+                    if (ii != i or jj != j) and height_map[ii, jj] >= h:
+                        is_summit = False
+                        break
+                if not is_summit:
+                    break
+            summits[i, j] = is_summit
+    return summits
+
 @njit(cache=True)
 def apply_z_weighting(height_map):
     z_map = np.zeros_like(height_map, dtype=np.float32)
@@ -487,6 +532,25 @@ def edge_cost_evaluation(v0, v1, q1, q2, w1, w2, v0_is_boundary, v1_is_boundary,
     return cost, ox, oy, oz
 
 
+@njit(fastmath=True, cache=True)
+def keep_summit_position(v0, v1, q1, q2, v0_summit, v1_summit, v0_line, v1_line, cost, ox, oy, oz):
+    #a collapse that touches a summit leaves it where it is (the higher one if both are summits), so summits are
+    #not averaged lower; skipped if the other vertex is on a cell line, which has to stay on that line
+    if cost >= 1e99 or not (v0_summit or v1_summit):
+        return cost, ox, oy, oz
+    if v0_summit and (not v1_summit or v0[2] >= v1[2]):
+        px, py, pz, other_line = v0[0], v0[1], v0[2], v1_line
+    else:
+        px, py, pz, other_line = v1[0], v1[1], v1[2], v0_line
+    if other_line:
+        return cost, ox, oy, oz
+    cost = (q1[0, 0] + q2[0, 0]) * px * px + (q1[1, 1] + q2[1, 1]) * py * py + (q1[2, 2] + q2[2, 2]) * pz * pz
+    cost += 2.0 * ((q1[0, 1] + q2[0, 1]) * px * py + (q1[0, 2] + q2[0, 2]) * px * pz + (q1[1, 2] + q2[1, 2]) * py * pz)
+    cost += 2.0 * ((q1[0, 3] + q2[0, 3]) * px + (q1[1, 3] + q2[1, 3]) * py + (q1[2, 3] + q2[2, 3]) * pz)
+    cost += q1[3, 3] + q2[3, 3]
+    return cost, px, py, pz
+
+
 #original array-based version, kept for reference (not called)
 @njit(fastmath=True, cache=True)
 def edge_cost_evaluation_legacy(v0, v1, q1, q2, w1, w2, v0_is_boundary, v1_is_boundary, v0_h, v1_h, v0_v, v1_v):
@@ -614,7 +678,7 @@ def edge_cost_evaluation_legacy(v0, v1, q1, q2, w1, w2, v0_is_boundary, v1_is_bo
     return cost, optimum
 
 @njit(cache=True)
-def calculate_edge_cost(vertices_array, edges_array, vertice_quadrics_array, weights_array, horizontal_border, vertical_border):
+def calculate_edge_cost(vertices_array, edges_array, vertice_quadrics_array, weights_array, horizontal_border, vertical_border, summits):
     n_edges = len(edges_array)
     cost = np.zeros(n_edges, dtype=np.float64)
     optimum = np.zeros((n_edges, 3), dtype=np.float64)
@@ -633,6 +697,9 @@ def calculate_edge_cost(vertices_array, edges_array, vertice_quadrics_array, wei
         v0_v = vertical_border[edge[0]]
         v1_v = vertical_border[edge[1]]
         cost[i], optimum[i, 0], optimum[i, 1], optimum[i, 2] = edge_cost_evaluation(v0, v1, q1, q2, w1, w2, v0_is_boundary, v1_is_boundary, v0_h, v1_h, v0_v, v1_v)
+        cost[i], optimum[i, 0], optimum[i, 1], optimum[i, 2] = keep_summit_position(v0, v1, q1, q2, summits[edge[0]], summits[edge[1]],
+                                                                                    v0_h or v0_v, v1_h or v1_v,
+                                                                                    cost[i], optimum[i, 0], optimum[i, 1], optimum[i, 2])
         cost[i] = cost[i] * (w1 + w2) / 2
 
     return cost, optimum
@@ -651,7 +718,7 @@ def is_positive_semidefinite(M, tol=1e-14):
 
 @njit(fastmath=True, cache=True)
 def simplify_mesh(vertices_array, triangles_array, edges_array,
-                  vertex_quadrics_array, edge_cost, edges_collapse, weights_array, horizontal_border, vertical_border, 
+                  vertex_quadrics_array, edge_cost, edges_collapse, weights_array, horizontal_border, vertical_border, summits,
                   target_verts=30000, min_error=500000, first_loop_min_error=500, vertices_batch=0.8, current_vert_abs_minimum=1089, max_error_resort_skip=50000):
     #QEM decimation with some very not math-strict adjustments https://www.cs.cmu.edu/~./garland/Papers/quadrics.pdf
     
@@ -747,8 +814,12 @@ def simplify_mesh(vertices_array, triangles_array, edges_array,
 
         #yep, that's the original intention of the method author
         #the idea is to combine the errors of both verts
-        weights_array[v0] = (weights_array[v0] + weights_array[v1]) 
+        weights_array[v0] = (weights_array[v0] + weights_array[v1])
 
+        #the merged vertex is still a summit only if it was placed on one
+        new_x, new_y = edges_collapse[e_idx, 0], edges_collapse[e_idx, 1]
+        summits[v0] = (summits[v0] and vertices_array[v0, 0] == new_x and vertices_array[v0, 1] == new_y) or \
+                      (summits[v1] and vertices_array[v1, 0] == new_x and vertices_array[v1, 1] == new_y)
 
         vertices_array[v0] = edges_collapse[e_idx]
 
@@ -834,6 +905,11 @@ def simplify_mesh(vertices_array, triangles_array, edges_array,
                                                                  vertex_quadrics_array[ev1], weights_array[ev0], weights_array[ev1],
                                                                  False, False, horizontal_border[ev0], horizontal_border[ev1],
                                                                  vertical_border[ev0], vertical_border[ev1])
+            updated_cost, opt_x, opt_y, opt_z = keep_summit_position(vertices_array[ev0], vertices_array[ev1], vertex_quadrics_array[ev0],
+                                                                     vertex_quadrics_array[ev1], summits[ev0], summits[ev1],
+                                                                     horizontal_border[ev0] or vertical_border[ev0],
+                                                                     horizontal_border[ev1] or vertical_border[ev1],
+                                                                     updated_cost, opt_x, opt_y, opt_z)
             edge_cost[edge_idx] = updated_cost * (weights_array[ev0] + weights_array[ev1]) / 2
             edges_collapse[edge_idx, 0] = opt_x
             edges_collapse[edge_idx, 1] = opt_y
@@ -1097,16 +1173,26 @@ def UpdateCellBorders(q1, q2, border_c_axis, other_axis, merging_sensitivity=50,
 
 
 @njit(cache=True, nogil=True) #nogil: releases the GIL so GenerateLODMeshDataThreaded's python threads run in parallel
-def GenerateLODMeshData(height_map, target_verts, min_error, vertices_batch, max_error_resort_skip):
+def GenerateLODMeshData(height_map, target_verts, min_error, vertices_batch, max_error_resort_skip, peak_weight=0.0, keep_peak_height=False):
     #logging.info('Generating LOD mesh...')
     #print(height_map.shape)
     f_x, f_y, f_xx, f_yy, f_xy = calculate_derivative_maps(height_map)
     gradient_magnitude = calculate_gradient_magnitude(f_x, f_y)
-    max_eigenvalue = calculate_max_eigenvalue(f_xx, f_yy, f_xy) 
+    max_eigenvalue = calculate_max_eigenvalue(f_xx, f_yy, f_xy)
     weighting = apply_z_weighting(height_map)
-  
-    vertice_weights = (np.full((34*32 + 1, 34*32 + 1), 1, dtype=np.float32) + 1 * gradient_magnitude + 500 * np.minimum(max_eigenvalue, 0.02)) 
-    vertice_weights = vertice_weights * weighting
+
+    vertice_weights = (np.full((34*32 + 1, 34*32 + 1), 1, dtype=np.float32) + 1 * gradient_magnitude + 500 * np.minimum(max_eigenvalue, 0.02))
+
+    #peaks and ridges make the skyline, which is where a coarse LOD mesh shows; the curvature term above treats
+    #valleys the same and saturates on any sharp bump, so these add weight by height above the surroundings (0 in
+    #valleys, +10 * peak_weight at 1000 units) and a further +20 * peak_weight on the summits themselves
+    prominence = calculate_prominence(height_map, PROMINENCE_RADIUS)
+    summit_map = find_summits(height_map, prominence, SUMMIT_RADIUS, SUMMIT_MIN_PROMINENCE)
+    peak_term = np.minimum(np.maximum(prominence, np.float32(0)), np.float32(1000)) / np.float32(100) + summit_map * np.float32(20)
+    vertice_weights = (vertice_weights + np.float32(peak_weight) * peak_term) * weighting #float32 term: adds exactly 0 when off
+    summits = summit_map[32:32 + 32*32 + 1, 32:32 + 32*32 + 1].copy().reshape((32*32 + 1) * (32*32 + 1)) #same vertex order as create_vertices_from_heightmap
+    if not keep_peak_height:
+        summits[:] = False
     #z_weighted = apply_z_weighting(height_map)
     #logging.info('Derivatives calculated....')
 
@@ -1117,7 +1203,7 @@ def GenerateLODMeshData(height_map, target_verts, min_error, vertices_batch, max
     vertice_quadrics_array = generate_vert_quadratics(vertices_array, triangles_array)
     #logging.info('Quadratics calculated....')
 
-    edges_cost, edges_collapse = calculate_edge_cost(vertices_array, edges_array, vertice_quadrics_array, weights_array, horizontal_border, vertical_border)
+    edges_cost, edges_collapse = calculate_edge_cost(vertices_array, edges_array, vertice_quadrics_array, weights_array, horizontal_border, vertical_border, summits)
     #edge_data = np.column_stack((edges_cost, edges_array, np.arange(len(edges_cost))))
     #logging.info('Starting mesh decimation...')
 
@@ -1130,7 +1216,7 @@ def GenerateLODMeshData(height_map, target_verts, min_error, vertices_batch, max
     
    
     vertex_valid = simplify_mesh(vertices_array, triangles_array, edges_array,
-                    vertice_quadrics_array, edges_cost, edges_collapse, weights_array, horizontal_border, vertical_border,
+                    vertice_quadrics_array, edges_cost, edges_collapse, weights_array, horizontal_border, vertical_border, summits,
                     target_verts = target_verts, min_error = min_error, vertices_batch = vertices_batch, current_vert_abs_minimum=1089, max_error_resort_skip=max_error_resort_skip)
     
     
@@ -1166,7 +1252,8 @@ def GenerateLODMeshData(height_map, target_verts, min_error, vertices_batch, max
 
 
     
-def GenerateLODMeshDataThreaded(worldspace_heightmap, quads, x_low, y_low, threads, target_verts, min_error, vertices_batch, max_error_resort_skip):
+def GenerateLODMeshDataThreaded(worldspace_heightmap, quads, x_low, y_low, threads, target_verts, min_error, vertices_batch, max_error_resort_skip,
+                                peak_weight=0.0, keep_peak_height=False):
     #replaces the batched GenerateLODMeshDataWrapper: each thread takes the next quad as soon as it is free
     #(no waiting for the slowest quad of a batch) and there is no parallel=True wrapper to compile
     #returns results in the order of quads
@@ -1175,7 +1262,7 @@ def GenerateLODMeshDataThreaded(worldspace_heightmap, quads, x_low, y_low, threa
         x_pos = (quad[0] * 32 - x_low - 1) * 32
         y_pos = (quad[1] * 32 - y_low - 1) * 32
         height_map = worldspace_heightmap[y_pos:y_pos + 34 * 32 + 1, x_pos:x_pos + 34 * 32 + 1]
-        return GenerateLODMeshData(height_map, target_verts, min_error, vertices_batch, max_error_resort_skip)
+        return GenerateLODMeshData(height_map, target_verts, min_error, vertices_batch, max_error_resort_skip, peak_weight, keep_peak_height)
 
     with ThreadPoolExecutor(max_workers=threads) as executor:
         return list(executor.map(generate_quad, quads)) #re-raises any exception from a quad
