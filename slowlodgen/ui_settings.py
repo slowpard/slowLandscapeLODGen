@@ -326,7 +326,7 @@ class LODSettingsWindow(ctk.CTkToplevel):
         if v['noise_on'] and v['normal_on'] and v['normal_res'] < need:
             return (f'Normal map {short(v["normal_res"])} is too small for scale {v["noise_scale"]:.0f}: '
                     f'the noise turns into grain. Use {short(need)} or more.'), True
-        return f'Needs a normal map of {short(need)} or more at scale {v["noise_scale"]:.0f}.', False
+        return 'Recommended with a normal map of 4K or more.', False
 
     def _mesh_controls(self, c):
         self._setting(c, 'Triangles per quad', None, self._slider('triangles', 4000, 62000, 1000, '{:,.0f}'), enabled_key='mesh_on')
