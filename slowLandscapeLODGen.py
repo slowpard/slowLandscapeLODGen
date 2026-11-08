@@ -240,13 +240,18 @@ try:
 
 
 
+    def plugin_path(folder, name):
+        #Wrye Bash ghosts inactive plugins as name.ghost: the plugin keeps its name everywhere except on disk
+        path = os.path.join(folder, name)
+        return path + '.ghost' if not os.path.isfile(path) and os.path.isfile(path + '.ghost') else path
+
     def sort_esp_list(filenames, folder):
         file_list = []
-    
+
         for filename in filenames:
             if filename.startswith('#'):
                 continue
-            full_filename = os.path.join(folder, filename)
+            full_filename = plugin_path(folder, filename)
             if not os.path.exists(full_filename):
                 logging.error(f'Error: file {full_filename} is enabled but does not exist')
                 continue
@@ -276,24 +281,30 @@ try:
 
 
     def get_plugin_files(folder_path):
-        extensions = ('.esp', '.esm', '.ghost')
-        files = []
-        
+        files = {}
+
         for filename in os.listdir(folder_path):
-            file_path = os.path.join(folder_path, filename)
-            if os.path.isfile(file_path) and filename.lower().endswith(extensions):
-                files.append(filename)
-        
-        return sorted(files, key=str.lower)
+            name = filename[:-len('.ghost')] if filename.lower().endswith('.ghost') else filename
+            if name.lower().endswith(('.esp', '.esm')) and os.path.isfile(os.path.join(folder_path, filename)):
+                files.setdefault(name.lower(), name)
+
+        return sorted(files.values(), key=str.lower)
 
 
     esps_in_data = sort_esp_list(get_plugin_files(cfg.paths.oblivion_folder), cfg.paths.oblivion_folder)
+
+    #plugins that only matter for LOD generation (e.g. SI_HM_Fix.esp) are pre-selected even when inactive in game
+    in_data = {p.lower(): p for p in esps_in_data}
+    active = {p.lower() for p in current_load_order}
+    force_enabled = [in_data[p.lower()] for p in cfg.force_enabled_plugins if p.lower() in in_data and p.lower() not in active]
+    if force_enabled:
+        logging.info(f'Force-enabled plugins (inactive in game): {force_enabled}')
 
 
     app = PluginSelectorUI()
     app.withdraw()
 
-    load_order = app.ShowPluginsSelection(esps_in_data, current_load_order)
+    load_order = app.ShowPluginsSelection(esps_in_data, current_load_order + force_enabled)
     app.quit()
 
     if load_order is None:
@@ -305,6 +316,11 @@ try:
         exit()
 
     load_order_lowercase = [x.lower() for x in load_order]
+
+    #FormID-based LOD names need the index in the game's load order, which only has the plugins active in plugins.txt:
+    #force-enabled or extra ticked plugins don't take an index in game, unticked active ones still do
+    game_load_order = [x.lower() for x in current_load_order]
+    game_index = [game_load_order.index(p) if p in game_load_order else None for p in load_order_lowercase]
 
     logging.info(f'{load_order}')
 
@@ -319,7 +335,7 @@ try:
     for plugin in load_order:
         parser = ESPParser()
         logging.info('Reading: ' + plugin)
-        parser.parse(os.path.join(cfg.paths.oblivion_folder, plugin))
+        parser.parse(plugin_path(cfg.paths.oblivion_folder, plugin))
         plugin_lo = parser.load_order
         master_map = {}
         try:
@@ -472,11 +488,20 @@ try:
         dds.save(output_path)
 
 
+    inactive_warned = set()
+
     def GetFilenameForFile(form_id, worldspace, quad):
-        if (form_id >> 24) & 0xFF == 0:
+        index = (form_id >> 24) & 0xFF
+        if index == 0:
             return f'{form_id}.{(quad[0]*32):02}.{(quad[1]*32):02}.32'
+        if game_index[index] is None:
+            if worldspace not in inactive_warned:
+                inactive_warned.add(worldspace)
+                logging.warning(f'{worldspace} comes from {load_order[index]}, which is not active in game: the game will not load its LOD')
+        else:
+            form_id = (game_index[index] << 24) | (form_id & 0xFFFFFF)
         if cfg.general.use_enginebugfixes_naming_scheme:
-            return f'{load_order[(form_id >> 24) & 0xFF]}\\{worldspace}.{(quad[0]*32):02}.{(quad[1]*32):02}.32'
+            return f'{load_order[index]}\\{worldspace}.{(quad[0]*32):02}.{(quad[1]*32):02}.32'
         else:
             return f'{form_id}.{(quad[0]*32):02}.{(quad[1]*32):02}.32'
 
