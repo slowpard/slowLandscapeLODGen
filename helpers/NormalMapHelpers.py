@@ -343,25 +343,27 @@ def apply_shadows_to_vertex_normals(
         for i in range(W):
             nx = vertex_normals[j, i, 0]
             ny = vertex_normals[j, i, 1]
-            #nz = vertex_normals[j, i, 2]
-            
-            sw = westslope[j, i]
-            se = eastslope[j, i]
-            sn = northslope[j, i]
-            
-            tilt = (se - sw) * shadow_strength
-            north_factor = math.sqrt(max(sw, 0.0) * max(se, 0.0)) * northboost * shadow_strength
-            
-            nx_mod = nx - tilt
-            ny_mod = ny + north_factor
-            
-            if ny_mod > sn * shadow_strength:
-                ny_mod = sn * shadow_strength
-            
-            
-            result[j, i, 0] = nx_mod
-            result[j, i, 1] = ny_mod
-            result[j, i, 2] = vertex_normals[j, i, 2] #NO normalization here - baking will do it
+            nz = vertex_normals[j, i, 2]
+
+            sw = westslope[j, i] * shadow_strength
+            se = eastslope[j, i] * shadow_strength
+            sn = northslope[j, i] * shadow_strength
+
+            #like tes4ll: tilt the height gradient (normal = (-gx, -gy, 1)), not the normalized normal
+            gx = -nx / nz
+            gy = -ny / nz
+            gx += se - sw
+            gy -= math.sqrt(max(sw, 0.0) * max(se, 0.0)) * northboost
+
+            if gy > -sn: #a floor: tilt at least as far as the terrain in the scanned direction rises
+                gy = -sn
+
+
+            #unit length, like the no-shadow normals: baking blends 3 vertices before normalizing
+            inv = 1.0 / math.sqrt(gx * gx + gy * gy + 1.0)
+            result[j, i, 0] = -gx * inv
+            result[j, i, 1] = -gy * inv
+            result[j, i, 2] = inv
     
     return result
 
