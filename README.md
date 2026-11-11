@@ -94,6 +94,7 @@ The result is a much better error-to-triangle ratio than Monte Carlo sampling, b
   ![Stochastic vs plain grid tiling, close](docs/images/stochastic_tiling_close.jpg)
   ![Stochastic vs plain grid tiling, hillside](docs/images/stochastic_tiling_mid.jpg)
   *Stochastic tiling vs plain grid tiling (color map 8192), in two places. The plain grid shows regular diagonal streaks in the grass and a repeating pattern across the hillside; stochastic tiling breaks them up.*
+  [Interactive comparison](https://slowpard.github.io/slowmods-imgcomparisons/slowlandscapelodgen/stochastic-tiling/)
 - **9-direction Gaussian blending.** Every LAND point also bleeds into its 8 neighbours, so texture changes fade across cells instead of ending in hard seams (that's what made tes4ll's 4K textures look bad).
 - **Vertex colors.** The LAND vertex colors are applied as a multiplicative tint, the same way the game applies them up close.
 - **Noise brightness compensation (optional).** The game's LOD shader darkens the color map with a terrain noise texture, and modded noise textures often have a different average brightness, which can show up as a mismatch where the LOD meets the local landscape. This option brightens the color map to compensate.
@@ -102,9 +103,6 @@ The result is a much better error-to-triangle ratio than Monte Carlo sampling, b
 
 ![tes4ll 2048, tes4ll 4096, slowLandscapeLODGen 4096](docs/images/color_tes4ll_4k.jpg)
 *tes4ll at 2048 and 4096 vs slowLandscapeLODGen at 4096. At 4096, tes4ll's hard-edged texture points turn into a visible block grid.*
-
-![Vanilla vs slowLandscapeLODGen](docs/images/color_vanilla_vs_slowlodgen.jpg)
-*Vanilla LOD vs slowLandscapeLODGen at the default settings.*
 
 ### Normal maps
 **tes4ll** computed normal maps from derivatives of the heightmap and could optionally tilt the normals based on directional slope analysis ("fake shadows", north-boost).
@@ -117,10 +115,13 @@ The result is a much better error-to-triangle ratio than Monte Carlo sampling, b
 
 ![Vanilla, tes4ll and slowLandscapeLODGen normal maps](docs/images/normals_3way.jpg)
 *Normal maps: vanilla, tes4ll and slowLandscapeLODGen, on a snowy mountain peak.*
+[Interactive comparison](https://slowpard.github.io/slowmods-imgcomparisons/slowlandscapelodgen/normal-maps/)
 
 ## **Settings**
 
 The defaults are a good start; most people only pick worldspaces and maybe change the texture resolution. The window starts from the defaults in `LODGen_config.toml` next to the exe; each setting below gives its key there, in case you want different defaults. The file also holds a few advanced and debugging options, but normally you don't need to open it.
+
+Where a setting has an **Interactive comparison** link, it opens a page where you can drag between screenshots, zoom in, and switch between five scenes.
 
 ### Color map
 
@@ -129,6 +130,7 @@ The defaults are a good start; most people only pick worldspaces and maybe chang
 Color map size per quad, 512 to 16K. Each step up is 4× the disk space and VRAM (8 MB per quad at 4K, 32 MB at 8K, 128 MB at 16K).
 
 ![Color map resolution](docs/images/setting_color_resolution.jpg)
+[Interactive comparison](https://slowpard.github.io/slowmods-imgcomparisons/slowlandscapelodgen/color-map-resolution/)
 
 **Render at**: default 4K; `internal_dimension = 4096` in the `[texture]` section.
 
@@ -136,12 +138,14 @@ Working resolution, 2K to 16K, never lower than Resolution. When it is above the
 
 ![Render at: 2048 rendered at 2048 and at 8192](docs/images/setting_render_at.jpg)
 *A 2048 color map rendered at 2048 and at 8192. Rendering larger gives smoother transitions between the grass and dirt patches.*
+[Interactive comparison](https://slowpard.github.io/slowmods-imgcomparisons/slowlandscapelodgen/render-at/)
 
 **Blending falloff**: default 2.5; `gauss_blending_falloff = 2.5` in the `[texture]` section.
 
 How much neighbouring texture samples blend into each other. **Lower is smoother and blurrier, higher is sharper and blockier.** Note that the same number works a bit differently at different resolutions.
 
 ![Blending falloff](docs/images/setting_blending_falloff.jpg)
+[Interactive comparison](https://slowpard.github.io/slowmods-imgcomparisons/slowlandscapelodgen/blending-falloff/)
 
 **Noise brightness compensation**: default 0.00; `noise_compensation = 0.0` in the `[texture]` section.
 
@@ -157,7 +161,7 @@ DXT compression level, 0-18. The file size is the same; higher is slower and ver
 
 **Experimental.** Darkens valleys and crevices. Strength: 0 = no effect, 1 = full.
 
-![Ambient occlusion off / on](docs/images/setting_ambient_occlusion.jpg)
+[Interactive comparison](https://slowpard.github.io/slowmods-imgcomparisons/slowlandscapelodgen/ambient-occlusion/)
 
 ### Normal map
 
@@ -165,9 +169,13 @@ DXT compression level, 0-18. The file size is the same; higher is slower and ver
 
 Normal map size per quad. The heightmap has 1024 points per quad side, so above 1K there is no new terrain detail, only smoother shading and smaller compression blocks (and some room for detail noise if you use it).
 
+[Interactive comparison](https://slowpard.github.io/slowmods-imgcomparisons/slowlandscapelodgen/normal-maps/)
+
 **Format**: default DXT1; `compression = true` in the `[normal_map]` section (false = uncompressed).
 
 DXT1 is 8× smaller than uncompressed, but its 4×4 compression blocks can be more visible in normal maps than in color maps.
+
+[Interactive comparison](https://slowpard.github.io/slowmods-imgcomparisons/slowlandscapelodgen/normal-map-format/)
 
 **DXT1 quality**: default 14; `dds_encode_quality = 14` in the `[normal_map]` section.
 
@@ -178,12 +186,14 @@ DXT compression level, 0-18. The file size is the same; higher is slower and ver
 Higher makes distant hills and mountains stand out more in the lighting, lower makes them look flatter. 1.0 matches the real terrain; other values look less natural.
 
 ![Z-boost 1.0 and 2](docs/images/setting_z_boost.jpg)
+[Interactive comparison](https://slowpard.github.io/slowmods-imgcomparisons/slowlandscapelodgen/z-boost/)
 
 **Fake shadows / Shadow strength**: default off / 1.00; `shadows_enabled = false`, `shadow_strength = 1.0` in the `[normal_map]` section.
 
 Tilts the shading away from tall terrain to the west, east and north, as if it cast shadows, making mountains look more dramatic. Same approach as tes4ll.
 
 ![Fake shadows off / on](docs/images/setting_fake_shadows.jpg)
+[Interactive comparison](https://slowpard.github.io/slowmods-imgcomparisons/slowlandscapelodgen/fake-shadows/)
 
 **Detail noise**: default off; `noise_enabled = false` in the `[normal_map_noise]` section.
 
@@ -194,12 +204,14 @@ Adds procedural bumps that the heightmap doesn't have.
 Strength of the bumps.
 
 ![Detail noise](docs/images/setting_detail_noise.jpg)
+[Interactive comparison](https://slowpard.github.io/slowmods-imgcomparisons/slowlandscapelodgen/detail-noise/)
 
 **Noise scale**: default 20; `noise_scale = 20` in the `[normal_map_noise]` section.
 
 Feature size: higher = larger, coarser features. The noise has a fixed size on the ground, so it needs a big enough normal map (2K at scale 20, 4K at scale 10); on a smaller one it turns into pixel grain.
 
 ![Noise scale](docs/images/setting_noise_scale.jpg)
+[Interactive comparison of noise on different normal map sizes](https://slowpard.github.io/slowmods-imgcomparisons/slowlandscapelodgen/detail-noise-format/)
 
 ### Mesh
 
@@ -208,6 +220,7 @@ Feature size: higher = larger, coarser features. The noise has a fixed size on t
 Triangle budget per quad, 4,000 to 62,000 (the NIF format tops out at 65,535). The higher the value, the more detailed the mesh.
 
 ![4,000, 16,000, 32,000 and 60,000 triangles](docs/images/setting_triangles.jpg)
+[Interactive comparison](https://slowpard.github.io/slowmods-imgcomparisons/slowlandscapelodgen/mesh-triangles/)
 
 **Threads**: default 8; `threads = 8` in the `[mesh]` section.
 
@@ -236,7 +249,7 @@ Nope! slowLandscapeLODGen generates everything tes4ll did for landscape LOD. Obj
 **Will higher-quality LOD hurt my FPS?**
 
 There should be no impact on modern systems.
-
+ VRAM .//RAM consis a dconsideration, especially if you don't have any p for high-res textures (4K+)atch,  that disablies mirroring of texture in RAM (OR or ENBOoost).s
 **My mod worldspace's LOD disappeared after I changed my load order.**
 
 Install Engine Bug Fixes with the terrain LOD load patch (see Requirements) and regenerate: with it, the LOD files get load-order-independent names.
