@@ -22,9 +22,8 @@ class PluginSelectionWindow(ctk.CTkToplevel):
         ctk.CTkLabel(head, text='Plugins', font=(FONT + ' Semibold', 20), text_color=TEXT).pack(side='left')
         self.count_label = ctk.CTkLabel(head, text='', font=(FONT, 12), text_color=MUTED)
         self.count_label.pack(side='left', padx=(10, 0), pady=(4, 0))
-        ctk.CTkLabel(self, text='Pre-selected from your plugins.txt.', font=(FONT, 12), text_color=MUTED,
+        ctk.CTkLabel(self, text='Pre-selected from your load order.', font=(FONT, 12), text_color=MUTED,
                      anchor='w').pack(fill='x', padx=20, pady=(0, 10))
-
         footer = ctk.CTkFrame(self, fg_color=CARD, corner_radius=0)
         footer.pack(fill='x', side='bottom')
         ctk.CTkFrame(footer, height=1, fg_color=CARD_BORDER).pack(fill='x', side='top')

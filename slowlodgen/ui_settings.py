@@ -17,6 +17,23 @@ def short(res):
     return f'{res // 1024}K' if res >= 1024 else str(res)
 
 
+def shorten_path(path, limit=30):
+    #keeps the drive and as many trailing folders as fit: D:\…\mods\Landscape LOD Output
+    if len(path) <= limit:
+        return path
+    drive, rest = os.path.splitdrive(path)
+    parts = [p for p in rest.replace('/', os.sep).split(os.sep) if p]
+    tail = ''
+    for part in reversed(parts):
+        joined = part if not tail else part + os.sep + tail
+        if len(drive) + 2 + len(joined) > limit:
+            break
+        tail = joined
+    if not tail: #the last folder name alone is too long
+        return '…' + path[-(limit - 1):]
+    return f'{drive}{os.sep}…{os.sep}{tail}'
+
+
 def nearest(value, options):
     return min(options, key=lambda o: abs(o - value))
 
@@ -88,7 +105,6 @@ class LODSettingsWindow(ctk.CTkToplevel):
         head = ctk.CTkFrame(self, fg_color='transparent')
         head.pack(fill='x', padx=26, pady=(20, 4))
         ctk.CTkLabel(head, text='slowLandscapeLODGen', font=(FONT + ' Semibold', 22), text_color=TEXT).pack(side='left')
-        ctk.CTkLabel(head, text='Landscape LOD for Oblivion', font=(FONT, 12), text_color=MUTED).pack(side='left', padx=(12, 0), pady=(6, 0))
 
         self._footer()
 
@@ -281,19 +297,20 @@ class LODSettingsWindow(ctk.CTkToplevel):
         self.refreshers.append(lambda: update(summary, text=summary_fn() if self.v[on_key] else 'off'))
 
     def _color_controls(self, c):
-        self._setting(c, 'Resolution', 'Each step is 4× the disk space and VRAM.',
+        self._setting(c, 'Resolution', 'Each step is 4x the disk space and VRAM.',
                       self._seg('color_res', RESOLUTIONS, RESOLUTION_LABELS), enabled_key='color_on')
-        self._setting(c, 'Render at', 'Supersampling: render larger, then downscale.',
+        self._setting(c, 'Render at', 'Supersampling: the texture is rendered larger, then downscaled. '
+                       'Recommended to keep 2x the output resolution.',
                       self._seg('color_internal', INTERNAL, INTERNAL_LABELS), enabled_key='color_on')
         self._setting(c, 'Blending falloff', 'How much neighbouring texture samples blend. Lower is smooth but blurry; '
                       'higher is sharp but blocky, as each sample shows as a square.',
                       self._slider('falloff', 1, 10, 0.5, '{:.1f}'), enabled_key='color_on')
-        self._setting(c, 'Noise brightness compensation', 'The game darkens distant LOD with its terrain noise texture '
-                      '(about 27% with the vanilla one). Brightens the color map by the measured amount so LOD matches '
+        self._setting(c, 'Noise brightness compensation', 'The game darkens distant LOD with its terrain noise texture. '
+                      'Brightens the color map by the measured amount so LOD matches '
                       'the brightness of loaded land. 0 = off.',
                       self._slider('noise_comp', 0, 1, 0.05, '{:.2f}'), enabled_key='color_on')
-        self._setting(c, 'DXT1 quality', 'Compression effort, same file size. Higher is slower and slightly less blocky; '
-                      'ground texture detail hides most of the difference.',
+        self._setting(c, 'DXT1 quality', 'Higher is slower and slightly less blocky; '
+                      'the difference is subtle. The file size remains the same.',
                       self._slider('color_dds_level', 0, 18, 1), enabled_key='color_on')
         self._setting(c, 'Ambient occlusion', 'Darkens valleys and crevices.', self._switch('ao_on'),
                       enabled_key='color_on', note='Experimental.')
@@ -302,13 +319,13 @@ class LODSettingsWindow(ctk.CTkToplevel):
     def _normal_controls(self, c):
         self._setting(c, 'Resolution', 'Above 1K: smoother shading, no new details.',
                       self._seg('normal_res', RESOLUTIONS, RESOLUTION_LABELS), enabled_key='normal_on')
-        self._setting(c, 'Format', 'DXT1 is 8× smaller but blockier in lighting.',
+        self._setting(c, 'Format', 'DXT1 is 8x smaller but blockier in lighting.',
                       self._seg('normal_dxt1', [True, False], ['DXT1', 'Uncompressed']), enabled_key='normal_on')
-        self._setting(c, 'DXT1 quality', 'Compression effort, same file size. Higher is less blocky on smooth slopes; '
-                      '14 is a good balance, 18 is 4× slower for little gain.',
+        self._setting(c, 'DXT1 quality', 'Higher is less blocky on smooth slopes; the file size remains the same '
+                      '14 is a good balance, 18 is 4x slower for little gain.',
                       self._slider('normal_dds_level', 0, 18, 1), enabled_key='normal_dxt1')
         self._setting(c, 'Z-boost', 'Higher makes distant hills and mountains stand out more, lower makes them look flatter. '
-                      '1.0 matches the real terrain; other values look less natural.',
+                      '1.0 matches the real terrain; other values might look less natural.',
                       self._slider('z_boost', 0.1, 5, 0.05, '{:.2f}'), enabled_key='normal_on')
         self._setting(c, 'Fake shadows', None, self._switch('shadows_on'), enabled_key='normal_on')
         self._setting(c, 'Shadow strength', None, self._slider('shadow_strength', 0, 3, 0.05, '{:.2f}'), enabled_key='shadows_on')
@@ -331,21 +348,18 @@ class LODSettingsWindow(ctk.CTkToplevel):
     def _mesh_controls(self, c):
         self._setting(c, 'Triangles per quad', None, self._slider('triangles', 4000, 62000, 1000, '{:,.0f}'), enabled_key='mesh_on')
         self._setting(c, 'Threads', None, self._slider('threads', 1, os.cpu_count() or 8, 1), enabled_key='mesh_on')
-        self._setting(c, 'Edge UV inset', 'Keeps quad edges from blending with the opposite edge of their texture. '
-                      'Not needed with TerrainLODClamp.dll; Auto turns it off when the plugin is installed.',
+        self._setting(c, 'Edge UV inset', 'Hides the seams between LOD quads.',
                       self._seg('uv_clamp', ['Auto', 'On', 'Off']), enabled_key='mesh_on', note=self._uv_clamp_note)
 
     def _uv_clamp_note(self):
-        #same detection and size as detect_uv_inset() in the main script
+        #same detection as detect_uv_inset() in the main script (TerrainLODClamp.dll is LOD Seams Be Gone's plugin)
         v = self.v
         found = os.path.isfile(os.path.join(self.cfg.paths.oblivion_folder, 'OBSE', 'Plugins', 'TerrainLODClamp.dll'))
-        smallest = min(v['color_res'], v['normal_res'])
-        status = f'TerrainLODClamp.dll {"found" if found else "not found"}'
-        if v['uv_clamp'] == 'On' or (v['uv_clamp'] == 'Auto' and not found):
-            return f'{status}: edges inset by half a {short(smallest)} texel ({65536 / smallest:.0f} units).', False
-        if not found:
-            return f'{status}: no inset, expect seams at quad edges.', True
-        return f'{status}: no inset needed.', False
+        if found:
+            return 'Not needed: LOD Seams Be Gone is installed.', False
+        if v['uv_clamp'] == 'Off':
+            return 'Expect seams: LOD Seams Be Gone is not installed.', True
+        return 'On, as LOD Seams Be Gone is not installed.', False
 
     def _color_summary(self):
         v = self.v
@@ -373,23 +387,22 @@ class LODSettingsWindow(ctk.CTkToplevel):
     def _output_options(self, parent):
         card = ctk.CTkFrame(parent, fg_color=CARD, border_color=CARD_BORDER, border_width=1, corner_radius=8)
         card.pack(fill='x', pady=(0, 10), padx=(0, 4))
+        #the chosen folder goes in the note line under the description, so a long path can't crowd the buttons
         self._setting(card, 'Output folder', 'With MO2, choose an empty folder in your mods folder.',
-                      self._folder_control, first=True)
+                      self._folder_control, first=True,
+                      note=lambda: ('Game Data folder' if self.v['output_folder'] == self.cfg.paths.oblivion_folder
+                                    else shorten_path(self.v['output_folder'], 45), False))
         self._setting(card, 'Engine Bug Fixes naming', 'Load-order independent names for mod worldspaces.',
                       self._seg('ebf', ['Auto', 'On', 'Off']))
 
     def _folder_control(self, parent):
         f = ctk.CTkFrame(parent, fg_color='transparent')
-        label = ctk.CTkLabel(f, text='', font=(FONT, 12), text_color=TEXT, anchor='e', width=200)
-        label.pack(side='left')
         ctk.CTkButton(f, text='Browse…', width=84, height=30, font=(FONT, 12), fg_color=CARD, text_color=TEXT,
                       border_color=CARD_BORDER, border_width=1, hover_color=HOVER,
-                      command=self._browse_output_folder).pack(side='left', padx=(10, 0))
+                      command=self._browse_output_folder).pack(side='left')
         ctk.CTkButton(f, text='Reset', width=60, height=30, font=(FONT, 12), fg_color=CARD, text_color=TEXT,
                       border_color=CARD_BORDER, border_width=1, hover_color=HOVER,
                       command=lambda: self._set('output_folder', self.cfg.paths.oblivion_folder)).pack(side='left', padx=(6, 0))
-        self.refreshers.append(lambda: update(
-            label, text='Game Data folder' if self.v['output_folder'] == self.cfg.paths.oblivion_folder else self.v['output_folder']))
         return f
 
     def _browse_output_folder(self):
@@ -431,7 +444,7 @@ class LODSettingsWindow(ctk.CTkToplevel):
         names = ', '.join(ws['editor_id'] for ws in chosen[:3]) + (f' and {len(chosen) - 3} more' if len(chosen) > 3 else '')
         update(self.summary, text=names)
         too_much = self.total_ram > 0 and ram_gb > 0.7 * self.total_ram
-        update(self.detail, text=f'{quads} quads  ·  ~{fmt_size(disk_mb)} on disk  ·  peak RAM ~{ram_gb:.1f} GB'
+        update(self.detail, text=f'{quads} quads  ·  ~{fmt_size(disk_mb)} on disk  ·  peak RAM during generation ~{ram_gb:.1f} GB'
                                  + (f' of {self.total_ram:.0f} GB' if self.total_ram > 0 else ''),
                text_color=DANGER if too_much else MUTED)
 
@@ -441,8 +454,7 @@ class LODSettingsWindow(ctk.CTkToplevel):
             ctk.CTkFrame(card, height=1, fg_color=CARD_BORDER).pack(fill='x', padx=16)
         row = ctk.CTkFrame(card, fg_color='transparent')
         row.pack(fill='x', padx=18, pady=12)
-        text = ctk.CTkFrame(row, fg_color='transparent')
-        text.pack(side='left', fill='x', expand=True)
+        text = ctk.CTkFrame(row, fg_color='transparent') #packed after the control, so a long text can't push it off the row
         title_label = ctk.CTkLabel(text, text=title, font=(FONT, 13), text_color=TEXT, anchor='w')
         title_label.pack(anchor='w')
         if desc:
@@ -459,6 +471,7 @@ class LODSettingsWindow(ctk.CTkToplevel):
                 self.refreshers.append(update_note)
         control = control_fn(row)
         control.pack(side='right', padx=(16, 0))
+        text.pack(side='left', fill='x', expand=True)
         if enabled_key:
             last = {'on': None}
             def update_enabled():
