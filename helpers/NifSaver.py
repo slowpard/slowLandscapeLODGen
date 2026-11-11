@@ -13,20 +13,10 @@ import tempfile
 import re
 from scipy.spatial import cKDTree
 
-def _triangle_worker(in_path, out_path, flags, stderr_path):
-    if sys.platform == 'win32':
-        import ctypes
-        ctypes.windll.kernel32.SetErrorMode(0x0002 | 0x0001)
-    
-    with open(stderr_path, "w") as f:
-        os.dup2(f.fileno(), sys.stderr.fileno())
-        os.dup2(f.fileno(), sys.stdout.fileno()) #Triangle prints its errors to stdout
-        data = np.load(in_path)
-        verts = data["vertices"].astype(np.float64).copy()
-        segs = data["segments"].astype(np.int32).copy()
-        result = triangle.triangulate({"vertices": verts, "segments": segs}, flags)
-        np.savez(out_path, vertices=result["vertices"], triangles=result["triangles"])
-
+#the worker lives in its own module: a child that imported this one would pull in pyffi without the main script's
+#time.clock patch and die on import
+from helpers.TriangleWorker import _triangle_worker
+_WORKER_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'TriangleWorker.py')
 
 def triangulate_safe(vertices_2d, segments, temp_dir, flags='pY', timeout=15, name='tri'):
     #unique file names per call so concurrent runs don't clobber each other's files
@@ -43,20 +33,35 @@ def triangulate_safe(vertices_2d, segments, temp_dir, flags='pY', timeout=15, na
 
     try:
         np.savez(in_path, vertices=normalized_verts, segments=segments)
-        proc = multiprocessing.Process(
-            target=_triangle_worker,
-            args=(in_path, out_path, flags, err_path)
-        )
-        proc.start()
-        proc.join(timeout=timeout)
         def _read_err():
             return open(err_path).read() if os.path.exists(err_path) else ""
-        if proc.is_alive():
-            proc.kill()
-            proc.join()
-            raise RuntimeError(f"Triangle hung (>{timeout}s)\n{_read_err()}")
-        if proc.exitcode != 0:
-            raise RuntimeError(f"Triangle crashed (exit code {proc.exitcode})\n{_read_err()}")
+        if getattr(sys, 'frozen', False):
+            proc = multiprocessing.Process(
+                target=_triangle_worker,
+                args=(in_path, out_path, flags, err_path)
+            )
+            proc.start()
+            proc.join(timeout=timeout)
+            if proc.is_alive():
+                proc.kill()
+                proc.join()
+                raise RuntimeError(f"Triangle hung (>{timeout}s)\n{_read_err()}")
+            exitcode = proc.exitcode
+        else:
+            #from source a multiprocessing child would re-import the main script, which has no __main__ guard,
+            #and run the whole generator again; a plain interpreter running only the worker script avoids that
+            hung = False
+            with open(err_path, 'w') as err_file:
+                try:
+                    exitcode = subprocess.run([sys.executable, _WORKER_SCRIPT, in_path, out_path, flags],
+                                              stdout=err_file, stderr=err_file, timeout=timeout,
+                                              creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0)).returncode
+                except subprocess.TimeoutExpired: #run() kills the child before raising
+                    hung = True
+            if hung:
+                raise RuntimeError(f"Triangle hung (>{timeout}s)\n{_read_err()}")
+        if exitcode != 0:
+            raise RuntimeError(f"Triangle crashed (exit code {exitcode})\n{_read_err()}")
         if not os.path.exists(out_path):
             raise RuntimeError(f"Triangle produced no output\n{_read_err()}")
         result = np.load(out_path)
