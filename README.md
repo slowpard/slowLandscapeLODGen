@@ -1,14 +1,14 @@
-slowLandscapeLODGen is a TES 4: Oblivion (and Nehrim) tool that generates landscape LOD: the terrain meshes, color textures and normal maps you see beyond the loaded cells. (Not to be confused with object LOD, the things standing on top of the terrain: that's [slowLODGen](https://www.nexusmods.com/oblivion/mods/54553).) It is a spiritual successor to tes4ll and its integrated TES4qLOD module, aiming for noticeably better-looking distant terrain, generated in minutes on modern hardware, with a hassle-free experience on modern mod managers.
+slowLandscapeLODGen is a TES 4: Oblivion (and Nehrim) tool that generates landscape LOD: the terrain meshes, color textures and normal maps you see beyond the loaded cells (Not to be confused with object LOD, the things standing on top of the terrain: that's [slowLODGen](https://www.nexusmods.com/oblivion/mods/54553)). It is a spiritual successor to tes4ll, aiming for noticeably better-looking distant terrain that takes minutes to generate and doesn't fight your mod manager.
 
 ## **Key Features**
 
 **It reads your load order and textures.** Your distant terrain matches the mods you have installed.
 
-**Meshes that actually follow the terrain.** slowLandscapeLODGen creates much higher-quality meshes than vanilla, using a much more sophisticated algorithm than tes4ll (or the vanilla CS): fewer floating objects, less terrain changing shape as you approach it, and no holes between the local landscape and LOD.
+**Meshes that actually follow the terrain.** slowLandscapeLODGen creates much higher-quality meshes than vanilla, the CS or tes4ll: fewer floating objects, less terrain changing shape as you approach it, and no holes between the local landscape and LOD.
 
 **Textures as ultra-high-res as you want.** The color maps are composited from your actual landscape textures, using the game's own layering and blending logic so they match the local terrain and blend smoothly, with stochastic tiling to hide repetition.
 
-**Proper shading at a distance.** Normal maps are baked from the real terrain geometry, without artificial steps. Optional fake shadows, extra relief and procedural detail are there if you want some extra eye candy.
+**Proper shading at a distance.** Normal maps are baked from the real terrain geometry, without tes4ll's stair-step artifacts. Optional fake shadows, exaggerated relief and procedural detail are there if you want more eye candy.
 
 **Compatibility and happiness.** Works seamlessly with all mod setups and popular mod managers.
 
@@ -64,7 +64,7 @@ Each of the three outputs (Color map, Normal map, Mesh) has its own on/off switc
 
 **tes4ll** used an **additive (bottom-up) approach**: it started with an empty set and *added* vertices using Monte Carlo sampling, with configurable "density algorithms" (first and second derivatives, z-weighting, peak finders, etc.) deciding where vertices were more likely to land. On top of that, it placed some vertices manually: specific preselected points from its .dat file, and special handling around rivers. A Delaunay triangulation (Shewchuk's Triangle library) then connected them. Vertex density was only a proxy for terrain complexity, not a measure of how far the mesh is from the real terrain, so the approach was far from perfect.
 
-**slowLandscapeLODGen** uses a **subtractive (top-down) approach**: Quadric Error Metric (QEM) decimation after Garland & Heckbert (1997). It starts with the *full-resolution* heightmap grid (1025×1025 vertices per quad) and keeps collapsing the edge that adds the least error. In other words, the algorithm directly minimizes how far the simplified mesh drifts from the original surface.
+**slowLandscapeLODGen** uses a **subtractive (top-down) approach**: Quadric Error Metric (QEM) decimation after Garland & Heckbert (1997). It starts with the *full-resolution* heightmap grid (1025×1025 vertices per quad) and keeps collapsing the edge that adds the least error, so the algorithm directly minimizes how far the simplified mesh drifts from the original surface.
 
 On top of plain QEM:
 
@@ -83,8 +83,6 @@ The result is a much better error-to-triangle ratio than Monte Carlo sampling, b
 ![Three summits](docs/images/mesh_peaks.jpg)
 
 
-
-### Color maps
 **TES4qLOD** looked up the landscape texture for each texture point, matched it to a pre-cached 4×4 pixel thumbnail of that texture, and painted the corresponding color. Layers were blended either "best-win" (highest opacity wins) or with basic alpha compositing, and the thumbnails lost virtually all texture detail. Basically, it took 4×4 versions of the land textures and made a sort of mosaic out of them, which is why anything that didn't blur neighbouring points together ended up with a terrible blocky look.
 
 **slowLandscapeLODGen** does this instead:
@@ -138,7 +136,7 @@ Color map size per quad, 512 to 16K. Each step up is 4× the disk space and VRAM
 Working resolution, 2K to 16K, never lower than Resolution. When it is above the output resolution, the map is rendered larger and then downscaled (supersampling), which gives a more detailed texture. 2× the output resolution is recommended.
 
 ![Render at: 2048 rendered at 2048 and at 8192](docs/images/setting_render_at.jpg)
-*A 2048 color map rendered at 2048 and at 8192. Rendering larger gives smoother transitions between the grass and dirt patches.*
+*A 2048 color map rendered at 2048 and at 8192. Rendering larger gives smoother transitions between the grass and dirt patches and sharper finer detail.*
 [Interactive comparison](https://slowpard.github.io/slowmods-imgcomparisons/slowlandscapelodgen/render-at/)
 
 **Blending falloff**: default 2.5; `gauss_blending_falloff = 2.5` in the `[texture]` section.
@@ -247,10 +245,14 @@ Load-order-independent file names for mod-added worldspaces, so their LOD surviv
 
 Nope! slowLandscapeLODGen generates everything tes4ll did for landscape LOD. Object LOD is a different story: that's [slowLODGen](https://github.com/slowpard/slowLODGen)'s job.
 
+**Do I still need slowLODGen?**
+
+Yes, if you want object LOD. The two tools do different jobs: slowLandscapeLODGen generates the distant terrain (the ground itself), slowLODGen generates the distant objects standing on it (buildings, trees, rocks). They don't overlap, so run both.
+
 **Will higher-quality LOD hurt my FPS?**
 
-There should be no impact on modern systems.
- VRAM .//RAM consis a dconsideration, especially if you don't have any p for high-res textures (4K+)atch,  that disablies mirroring of texture in RAM (OR or ENBOoost).s
+There should be no FPS impact on modern systems. VRAM and RAM can be a consideration with high-res textures (4K+), especially if you don't have a patch that disables mirroring of textures in RAM (Oblivion Reloaded or ENBoost).
+
 **My mod worldspace's LOD disappeared after I changed my load order.**
 
 Install Engine Bug Fixes with the terrain LOD load patch (see Requirements) and regenerate: with it, the LOD files get load-order-independent names.
