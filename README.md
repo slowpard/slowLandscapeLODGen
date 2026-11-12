@@ -23,6 +23,7 @@ slowLandscapeLODGen is a TES 4: Oblivion (and Nehrim) tool that generates landsc
 - Recommended:
   - [Engine Bug Fixes](https://www.nexusmods.com/oblivion/mods/47085) with the terrain LOD load patch.
   - [LOD Seams Be Gone](https://www.nexusmods.com/oblivion/mods/56745) to fix the nasty lines between LOD quads. (Without it, slowLandscapeLODGen applies a fix of its own, which can look a bit worse.)
+  - [slowLODGen](https://www.nexusmods.com/oblivion/mods/54553) for object LOD: the distant buildings, trees and rocks standing on top of the terrain.
 
 ## **Installation and Usage**
 
