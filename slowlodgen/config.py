@@ -143,6 +143,20 @@ class Config:
     excluded_worldspaces: List[str] = field(default_factory=list)
 
 
+    def sections(self):
+        return {
+            "general": self.general, "mesh": self.mesh,
+            "texture": self.texture, "normal_map": self.normal_map,
+            "normal_map_noise": self.normal_map_noise,
+            "ao": self.ao, "paths": self.paths,
+        }
+
+    def log_settings(self):
+        #one line per config section with every value actually used, for bug reports
+        for name, dc in self.sections().items():
+            values = ', '.join(f'{f.name}={getattr(dc, f.name)}' for f in dataclasses.fields(dc))
+            logging.info(f'[{name}] {values}')
+
     def apply_overrides(self):
         if not self.mesh.multithreaded:
             self.mesh.threads = 1
@@ -173,14 +187,7 @@ def load_config(path):
     cfg.force_enabled_plugins = general_raw.pop("force_enabled_plugins", [])
     cfg.excluded_worldspaces = general_raw.pop("excluded_worldspaces", [])
 
-    config_sections = {
-        "general": cfg.general, "mesh": cfg.mesh,
-        "texture": cfg.texture, "normal_map": cfg.normal_map,
-        "normal_map_noise": cfg.normal_map_noise,
-        "ao": cfg.ao, "paths": cfg.paths,
-    }
-
-    for name, dc in config_sections.items():
+    for name, dc in cfg.sections().items():
         if name not in raw:      
             continue
         known = {f.name: f.type for f in dataclasses.fields(dc)}

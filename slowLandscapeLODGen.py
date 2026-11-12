@@ -568,6 +568,10 @@ try:
             logging.warning("No worldspaces selected for generation. Please select at least one.")
             continue
 
+        logging.info('=== SETTINGS ===')
+        logging.info(f'Worldspaces: {", ".join(str(ws) for ws in worldspaces_to_generate)}')
+        cfg.log_settings()
+
 
         if cfg.general.generate_color_maps:
 
